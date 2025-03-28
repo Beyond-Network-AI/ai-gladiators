@@ -41,6 +41,26 @@
 - ✅ Four spawn zones are visible in the corners of the arena
 - ✅ Each spawn zone is properly labeled (Zone 1, Zone 2, etc.)
 
+## Step 2 - AI Gladiators (Completed)
+
+### Done:
+- Created Gladiator.ts class with position, sprite, and randomly generated stats
+- Implemented Finite State Machine (FSM) with 5 states: idle, seek, attack, evade, collectPowerUp
+- Added state transitions based on gladiator stats, health, and proximity to other gladiators
+- Implemented health and knockout logic with visual effects
+- Added gladiator spawning to ArenaScene, with one gladiator in each spawn zone
+- Set up collision handling between gladiators
+- Implemented targeting system where gladiators seek the nearest opponent
+- Added match timer and end-of-match detection
+
+### Test Results:
+- ✅ Gladiators spawn at correct positions with randomly generated stats
+- ✅ Gladiators actively seek opponents, attack, and transition between states
+- ✅ Health bars display and update correctly when damage is taken
+- ✅ Gladiators are knocked out when health reaches zero
+- ✅ Match ends when only one gladiator remains or time runs out
+- ✅ Match automatically restarts after completion
+
 ### Next Steps:
-- Step 2.1 - Create Gladiator class
-- Step 2.2 - Implement gladiator spawning mechanism 
+- Step 3.1 - Create PowerUp class
+- Step 3.2 - Add Arena Hazards 

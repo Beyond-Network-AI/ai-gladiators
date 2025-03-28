@@ -1,17 +1,33 @@
 import Phaser from 'phaser';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/constants';
+import { Gladiator } from '../objects/Gladiator';
+import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
 
 export class ArenaScene extends Phaser.Scene {
   // Spawn zones for gladiators
   private spawnZones: Phaser.Geom.Rectangle[];
   
+  // Gladiator management
+  private gladiators: Gladiator[];
+  private gladiatorCount: number = 4; // Number of gladiators to spawn
+  
+  // Debug settings
+  private debugMode: boolean;
+  
+  // Match timer
+  private matchTimer: number = 60; // 60 seconds match duration
+  private matchTimerText: Phaser.GameObjects.Text | null = null;
+  
   constructor() {
     super({ key: 'ArenaScene' });
     this.spawnZones = [];
+    this.gladiators = [];
+    this.debugMode = DEFAULT_GAME_SETTINGS.debugMode;
   }
 
   preload(): void {
-    // Preload assets - will be implemented in future steps
+    // Load gladiator placeholder sprite
+    this.load.image('gladiator', 'https://labs.phaser.io/assets/sprites/mushroom2.png');
   }
 
   create(): void {
@@ -34,13 +50,61 @@ export class ArenaScene extends Phaser.Scene {
     this.createSpawnZones();
     
     // Visualize spawn zones in debug mode
-    this.visualizeSpawnZones();
+    if (this.debugMode) {
+      this.visualizeSpawnZones();
+    }
+    
+    // Create match timer text
+    this.matchTimerText = this.add.text(
+      GAME_WIDTH / 2,
+      70,
+      `Time: ${this.matchTimer}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5, 0.5);
+    
+    // Timer event to update match timer every second
+    this.time.addEvent({
+      delay: 1000,
+      callback: this.updateMatchTimer,
+      callbackScope: this,
+      loop: true
+    });
+    
+    // Spawn gladiators
+    this.spawnGladiators();
+    
+    // Set up collision between gladiators
+    this.physics.add.collider(
+      this.gladiators,
+      this.gladiators,
+      this.handleGladiatorCollision,
+      undefined,
+      this
+    );
+    
+    // Enable world bounds collision feedback to prevent sticking to edges
+    this.physics.world.setBoundsCollision(true, true, true, true);
     
     console.log('ArenaScene created successfully!');
   }
 
   update(): void {
-    // Update logic - will be implemented in future steps
+    // Update each gladiator
+    for (const gladiator of this.gladiators) {
+      if (gladiator.active) {
+        gladiator.update();
+      }
+    }
+    
+    // Find targets for each gladiator
+    this.updateGladiatorTargets();
+    
+    // Check if we should end the match
+    this.checkMatchEnd();
   }
 
   private createSpawnZones(): void {
@@ -101,5 +165,239 @@ export class ArenaScene extends Phaser.Scene {
         }
       ).setOrigin(0.5, 0.5);
     }
+  }
+  
+  private spawnGladiators(): void {
+    // Spawn gladiators in each zone
+    for (let i = 0; i < this.gladiatorCount; i++) {
+      // Get spawn zone (wrap around if more gladiators than zones)
+      const zoneIndex = i % this.spawnZones.length;
+      const zone = this.spawnZones[zoneIndex];
+      
+      // Calculate random position within zone
+      const x = zone.x + Math.random() * zone.width;
+      const y = zone.y + Math.random() * zone.height;
+      
+      // Create gladiator
+      const gladiator = new Gladiator(this, x, y, 'gladiator');
+      
+      // Add to array for tracking
+      this.gladiators.push(gladiator);
+      
+      // Create gladiator label
+      this.add.text(
+        gladiator.x,
+        gladiator.y - 55,
+        `Gladiator ${i + 1}`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '14px',
+          color: COLORS.primaryText
+        }
+      ).setOrigin(0.5, 0.5)
+       .setDepth(1);
+    }
+    
+    console.log(`${this.gladiators.length} gladiators spawned!`);
+  }
+  
+  private updateGladiatorTargets(): void {
+    // For each active gladiator, find closest target
+    for (const gladiator of this.gladiators) {
+      if (!gladiator.active) continue;
+      
+      // Find closest gladiator
+      let closestDistance = Number.MAX_VALUE;
+      let closestGladiator: Gladiator | null = null;
+      
+      for (const target of this.gladiators) {
+        // Skip self or inactive targets
+        if (target === gladiator || !target.active) continue;
+        
+        // Calculate distance
+        const distance = Phaser.Math.Distance.Between(
+          gladiator.x, gladiator.y,
+          target.x, target.y
+        );
+        
+        // Update closest if this one is closer
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestGladiator = target;
+        }
+      }
+      
+      // Set target (may be null if no active targets)
+      gladiator.setTarget(closestGladiator);
+    }
+  }
+  
+  private handleGladiatorCollision(gladiator1: any, gladiator2: any): void {
+    // Safety check and conversion
+    if (!(gladiator1 instanceof Gladiator) || !(gladiator2 instanceof Gladiator)) {
+      return;
+    }
+    
+    // Determine if both gladiators are active
+    if (!gladiator1.active || !gladiator2.active) {
+      return;
+    }
+    
+    // Apply stronger separation to prevent sticking
+    if (gladiator1.body && gladiator1.body.velocity) {
+      const angle = Phaser.Math.Angle.Between(
+        gladiator1.x, gladiator1.y,
+        gladiator2.x, gladiator2.y
+      );
+      
+      // Apply opposite force to separate gladiators
+      gladiator1.setVelocity(
+        -Math.cos(angle) * gladiator1.stats.speed * 0.5,
+        -Math.sin(angle) * gladiator1.stats.speed * 0.5
+      );
+    }
+    
+    if (gladiator2.body && gladiator2.body.velocity) {
+      const angle = Phaser.Math.Angle.Between(
+        gladiator2.x, gladiator2.y,
+        gladiator1.x, gladiator1.y
+      );
+      
+      // Apply opposite force to separate gladiators
+      gladiator2.setVelocity(
+        -Math.cos(angle) * gladiator2.stats.speed * 0.5,
+        -Math.sin(angle) * gladiator2.stats.speed * 0.5
+      );
+    }
+    
+    // Random chance to trigger attack state immediately upon collision
+    if (Math.random() < 0.3) {
+      if (gladiator1.active) gladiator1.setTarget(gladiator2);
+      if (gladiator2.active) gladiator2.setTarget(gladiator1);
+    }
+  }
+  
+  private updateMatchTimer(): void {
+    if (this.matchTimer <= 0) return;
+    
+    // Decrement timer
+    this.matchTimer--;
+    
+    // Update text
+    if (this.matchTimerText) {
+      this.matchTimerText.setText(`Time: ${this.matchTimer}`);
+    }
+    
+    // Check for time up
+    if (this.matchTimer <= 0) {
+      console.log('Time up!');
+      this.endMatch();
+    }
+  }
+  
+  private checkMatchEnd(): void {
+    // Count active gladiators
+    const activeGladiators = this.gladiators.filter(g => g.active);
+    
+    // If only one or zero left, end match
+    if (activeGladiators.length <= 1) {
+      if (activeGladiators.length === 1) {
+        console.log(`Gladiator is the winner!`);
+        const winner = activeGladiators[0];
+        
+        // Create winner text effect
+        this.add.text(
+          GAME_WIDTH / 2,
+          GAME_HEIGHT / 2,
+          'WINNER!',
+          {
+            fontFamily: 'Arial',
+            fontSize: '48px',
+            color: '#ffff00',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(10);
+         
+        // Create a visual highlight around the winner
+        const winnerGlow = this.add.graphics();
+        winnerGlow.fillStyle(0xffff00, 0.3);
+        winnerGlow.fillCircle(winner.x, winner.y, 50);
+        winnerGlow.lineStyle(3, 0xffff00, 1);
+        winnerGlow.strokeCircle(winner.x, winner.y, 55);
+      } else {
+        console.log('No gladiators left - draw!');
+        
+        // Create draw text
+        this.add.text(
+          GAME_WIDTH / 2,
+          GAME_HEIGHT / 2,
+          'DRAW!',
+          {
+            fontFamily: 'Arial',
+            fontSize: '48px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(10);
+      }
+      
+      this.endMatch();
+    }
+  }
+  
+  private endMatch(): void {
+    console.log('Ending match...');
+    
+    // Stop timer event
+    this.time.removeAllEvents();
+    
+    // Stop all gladiator movements
+    for (const gladiator of this.gladiators) {
+      if (gladiator && gladiator.active) {
+        gladiator.setVelocity(0, 0);
+      }
+    }
+    
+    // Create "New Match Starting..." text
+    const newMatchText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 50,
+      'New Match Starting...',
+      {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5, 0.5);
+    
+    // Countdown effect
+    let countdown = 3;
+    const countdownText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 20,
+      countdown.toString(),
+      {
+        fontFamily: 'Arial',
+        fontSize: '24px',
+        color: COLORS.highlight
+      }
+    ).setOrigin(0.5, 0.5);
+    
+    // Update countdown every second
+    const countdownTimer = this.time.addEvent({
+      delay: 1000,
+      callback: () => {
+        countdown--;
+        if (countdown > 0) {
+          countdownText.setText(countdown.toString());
+        } else {
+          countdownText.setText('GO!');
+          this.scene.restart();
+        }
+      },
+      repeat: 3
+    });
   }
 } 
