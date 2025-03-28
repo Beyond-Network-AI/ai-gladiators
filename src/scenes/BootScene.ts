@@ -37,6 +37,23 @@ export class BootScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
     
+    // Add loading message
+    const loadingText = this.add.text(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY + 100,
+      'Loading arena...',
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#ffffff'
+      }
+    ).setOrigin(0.5);
+    
+    // Transition to ArenaScene after 2 seconds
+    this.time.delayedCall(2000, () => {
+      this.scene.start('ArenaScene');
+    });
+    
     console.log('BootScene created successfully!');
   }
 

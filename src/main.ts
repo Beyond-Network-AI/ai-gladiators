@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
 import { BootScene } from './scenes/BootScene';
+import { ArenaScene } from './scenes/ArenaScene';
 
 // Game configuration
 const config: Phaser.Types.Core.GameConfig = {
@@ -12,11 +13,11 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: 'arcade',
     arcade: {
-      gravity: { y: 0 },
+      gravity: { x: 0, y: 0 },
       debug: false
     }
   },
-  scene: [BootScene]
+  scene: [BootScene, ArenaScene]
 };
 
 // Initialize the game
