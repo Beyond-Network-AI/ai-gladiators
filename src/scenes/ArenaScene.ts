@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/constants';
+import { COLORS, GAME_WIDTH, GAME_HEIGHT, GLADIATOR_SPRITES, FALLBACK_SPRITE } from '../utils/constants';
 import { Gladiator } from '../objects/Gladiator';
 import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
 
@@ -18,6 +18,9 @@ export class ArenaScene extends Phaser.Scene {
   private matchTimer: number = 60; // 60 seconds match duration
   private matchTimerText: Phaser.GameObjects.Text | null = null;
   
+  // Sprite selection for this round
+  private currentRoundSprites: string[] = [];
+  
   constructor() {
     super({ key: 'ArenaScene' });
     this.spawnZones = [];
@@ -26,8 +29,13 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Load gladiator placeholder sprite
-    this.load.image('gladiator', 'https://labs.phaser.io/assets/sprites/mushroom2.png');
+    // Load all gladiator sprites
+    GLADIATOR_SPRITES.forEach((sprite, index) => {
+      this.load.image(`gladiator_sprite_${index}`, sprite);
+    });
+    
+    // Load fallback sprite
+    this.load.image('gladiator_fallback', FALLBACK_SPRITE);
   }
 
   create(): void {
@@ -40,6 +48,9 @@ export class ArenaScene extends Phaser.Scene {
     // Reset arrays
     this.spawnZones = [];
     this.gladiators = [];
+    
+    // Select random sprites for this round
+    this.selectRandomSpritesForRound();
     
     // Set arena background
     this.cameras.main.setBackgroundColor(COLORS.background);
@@ -104,6 +115,8 @@ export class ArenaScene extends Phaser.Scene {
 
   // Clean up scene elements to prevent memory leaks
   private cleanupScene(): void {
+    console.log('Running thorough cleanup...');
+    
     // Clean up gladiators first
     if (this.gladiators && this.gladiators.length > 0) {
       for (const gladiator of this.gladiators) {
@@ -118,13 +131,27 @@ export class ArenaScene extends Phaser.Scene {
     // Stop all timers to prevent duplicate events
     this.time.removeAllEvents();
     
-    // Clean up any remaining game objects
-    this.children.each(child => {
+    // Destroy all game objects by type
+    this.children.getAll().forEach(child => {
+      // Skip essential objects
+      if (child.name === '__camera') return;
+      
+      // Clean up various object types
       if (child instanceof Phaser.GameObjects.Text || 
-          child instanceof Phaser.GameObjects.Graphics) {
+          child instanceof Phaser.GameObjects.Graphics ||
+          child instanceof Phaser.GameObjects.Rectangle ||
+          child instanceof Phaser.GameObjects.Sprite) {
         child.destroy();
       }
     });
+    
+    // Reset match timer
+    this.matchTimer = 60;
+    
+    // Clear any cached data
+    this.data.set('matchEnding', false);
+    
+    console.log('Cleanup completed');
   }
 
   update(): void {
@@ -202,6 +229,35 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
   
+  // Select random sprites for this round
+  private selectRandomSpritesForRound(): void {
+    // Clear previous selection
+    this.currentRoundSprites = [];
+    
+    // Create a copy of the sprite array to shuffle
+    const availableSprites = [...GLADIATOR_SPRITES];
+    
+    // Fisher-Yates shuffle algorithm
+    for (let i = availableSprites.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableSprites[i], availableSprites[j]] = [availableSprites[j], availableSprites[i]];
+    }
+    
+    // Take the first 4 sprites (or however many we need)
+    for (let i = 0; i < this.gladiatorCount; i++) {
+      if (i < availableSprites.length) {
+        // Generate a texture key for this sprite
+        const textureKey = `gladiator_sprite_${GLADIATOR_SPRITES.indexOf(availableSprites[i])}`;
+        this.currentRoundSprites.push(textureKey);
+      } else {
+        // Use fallback if we somehow run out of sprites
+        this.currentRoundSprites.push('gladiator_fallback');
+      }
+    }
+    
+    console.log(`Selected ${this.currentRoundSprites.length} random sprites for this round`);
+  }
+  
   private spawnGladiators(): void {
     // Spawn gladiators in each zone
     for (let i = 0; i < this.gladiatorCount; i++) {
@@ -213,27 +269,34 @@ export class ArenaScene extends Phaser.Scene {
       const x = zone.x + Math.random() * zone.width;
       const y = zone.y + Math.random() * zone.height;
       
-      // Create gladiator
-      const gladiator = new Gladiator(this, x, y, 'gladiator');
+      // Get texture key for this gladiator
+      const gladiatorSprite = this.currentRoundSprites[i];
+      
+      // Create gladiator with selected sprite
+      const gladiator = new Gladiator(this, x, y, gladiatorSprite);
       
       // Add to array for tracking
       this.gladiators.push(gladiator);
       
-      // Create gladiator label
-      this.add.text(
-        gladiator.x,
-        gladiator.y - 55,
-        `Gladiator ${i + 1}`,
-        {
-          fontFamily: 'Arial',
-          fontSize: '14px',
-          color: COLORS.primaryText
-        }
-      ).setOrigin(0.5, 0.5)
-       .setDepth(1);
+      // Create gladiator label (only in debug mode)
+      if (this.debugMode) {
+        this.add.text(
+          gladiator.x,
+          gladiator.y - 55,
+          `Gladiator ${i + 1}`,
+          {
+            fontFamily: 'Arial',
+            fontSize: '14px',
+            color: COLORS.primaryText,
+            backgroundColor: '#00000080',
+            padding: { x: 4, y: 2 }
+          }
+        ).setOrigin(0.5, 0.5)
+         .setDepth(1);
+      }
     }
     
-    console.log(`${this.gladiators.length} gladiators spawned!`);
+    console.log(`${this.gladiators.length} gladiators spawned with unique sprites!`);
   }
   
   private updateGladiatorTargets(): void {
@@ -340,46 +403,171 @@ export class ArenaScene extends Phaser.Scene {
         console.log(`Gladiator is the winner!`);
         const winner = activeGladiators[0];
         
-        // Create winner text effect
-        this.add.text(
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2,
-          'WINNER!',
-          {
-            fontFamily: 'Arial',
-            fontSize: '48px',
-            color: '#ffff00',
-            fontStyle: 'bold'
-          }
-        ).setOrigin(0.5, 0.5)
-         .setDepth(10);
-         
-        // Create a visual highlight around the winner
-        const winnerGlow = this.add.graphics();
-        winnerGlow.fillStyle(0xffff00, 0.3);
-        winnerGlow.fillCircle(winner.x, winner.y, 50);
-        winnerGlow.lineStyle(3, 0xffff00, 1);
-        winnerGlow.strokeCircle(winner.x, winner.y, 55);
+        // Create a clean game over overlay
+        this.createGameOverScreen(winner);
       } else {
         console.log('No gladiators left - draw!');
         
-        // Create draw text
-        this.add.text(
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2,
-          'DRAW!',
-          {
-            fontFamily: 'Arial',
-            fontSize: '48px',
-            color: '#ffffff',
-            fontStyle: 'bold'
-          }
-        ).setOrigin(0.5, 0.5)
-         .setDepth(10);
+        // Create a clean game over overlay for a draw
+        this.createGameOverScreen(null);
       }
       
       this.endMatch();
     }
+  }
+  
+  // Create a clean, attractive game over screen
+  private createGameOverScreen(winner: Gladiator | null): void {
+    // Create semi-transparent overlay
+    const overlay = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x000000,
+      0.7
+    ).setDepth(9);
+    
+    // Add border to the overlay
+    const border = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH - 40,
+      GAME_HEIGHT - 40,
+      0x000000,
+      0
+    ).setStrokeStyle(3, 0xffdd00)
+     .setDepth(10);
+    
+    if (winner) {
+      // Create winner header text
+      this.add.text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 4,
+        'WINNER!',
+        {
+          fontFamily: 'Arial',
+          fontSize: '64px',
+          color: '#ffdd00',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 6
+        }
+      ).setOrigin(0.5, 0.5)
+       .setDepth(10);
+       
+      // Create winner display in center
+      const winnerDisplay = this.add.sprite(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2,
+        winner.texture.key
+      ).setDepth(11)
+       .setScale(3.0); // Make winner bigger
+       
+      // Add a rotating highlight around the winner
+      const highlightRadius = 70;
+      const highlight = this.add.graphics().setDepth(10);
+      
+      // Create pulsing and rotating effect
+      this.tweens.add({
+        targets: winnerDisplay,
+        scale: 3.5,
+        duration: 800,
+        yoyo: true,
+        repeat: -1
+      });
+      
+      // Create ribbon-like celebration effect
+      this.createConfettiEffect(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+      
+    } else {
+      // Draw text - if no winner
+      this.add.text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2,
+        'DRAW!',
+        {
+          fontFamily: 'Arial',
+          fontSize: '64px',
+          color: '#ffffff',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 6
+        }
+      ).setOrigin(0.5, 0.5)
+       .setDepth(10);
+    }
+  }
+  
+  // Create ribbon-like celebration effect
+  private createConfettiEffect(x: number, y: number): void {
+    // Festive, celebratory color palette
+    const ribbonColors = [0xffd700, 0xff6347, 0xda70d6, 0x00ced1, 0xff1493];
+    
+    // Create more ribbons to compensate for removed particles
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 100 + Math.random() * 180;
+      const color = ribbonColors[Math.floor(Math.random() * ribbonColors.length)];
+      
+      // Create ribbon with varying sizes
+      const ribbon = this.add.rectangle(
+        x,
+        y,
+        2 + Math.random() * 3, // width
+        15 + Math.random() * 25, // height (longer ribbon)
+        color
+      ).setOrigin(0.5, 0)
+       .setDepth(11)
+       .setAlpha(0.7 + Math.random() * 0.3);
+      
+      // Make ribbons spiral outward
+      this.tweens.add({
+        targets: ribbon,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        rotation: Math.random() * 8,
+        alpha: 0,
+        duration: 1200 + Math.random() * 800,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          ribbon.destroy();
+        }
+      });
+    }
+    
+    // Create a second burst of ribbons with slight delay for continuous effect
+    this.time.delayedCall(300, () => {
+      for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 80 + Math.random() * 150;
+        const color = ribbonColors[Math.floor(Math.random() * ribbonColors.length)];
+        
+        const ribbon = this.add.rectangle(
+          x,
+          y,
+          2 + Math.random() * 3, // width
+          10 + Math.random() * 30, // height
+          color
+        ).setOrigin(0.5, 0)
+         .setDepth(11)
+         .setAlpha(0.7 + Math.random() * 0.3);
+        
+        // Different animation pattern for variety
+        this.tweens.add({
+          targets: ribbon,
+          x: x + Math.cos(angle) * distance,
+          y: y + Math.sin(angle) * distance,
+          rotation: Math.random() * 6 - 3,
+          alpha: 0,
+          duration: 1000 + Math.random() * 1000,
+          ease: 'Sine.easeOut',
+          onComplete: () => {
+            ribbon.destroy();
+          }
+        });
+      }
+    });
   }
   
   private endMatch(): void {
@@ -404,27 +592,54 @@ export class ArenaScene extends Phaser.Scene {
     // Create "New Match Starting..." text
     const newMatchText = this.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 50,
+      GAME_HEIGHT - 80,
       'New Match Starting...',
       {
         fontFamily: 'Arial',
         fontSize: '18px',
-        color: COLORS.primaryText
+        color: COLORS.primaryText,
+        backgroundColor: '#00000088',
+        padding: { x: 10, y: 5 }
       }
-    ).setOrigin(0.5, 0.5);
+    ).setOrigin(0.5, 0.5)
+     .setDepth(11);
     
     // Countdown effect
     let countdown = 3;
     const countdownText = this.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 20,
+      GAME_HEIGHT - 40,
       countdown.toString(),
       {
         fontFamily: 'Arial',
-        fontSize: '24px',
-        color: COLORS.highlight
+        fontSize: '36px',
+        color: COLORS.highlight,
+        fontStyle: 'bold',
+        backgroundColor: '#00000088',
+        padding: { x: 15, y: 5 }
       }
-    ).setOrigin(0.5, 0.5);
+    ).setOrigin(0.5, 0.5)
+     .setDepth(11);
+    
+    // Animate countdown
+    const countdownEvent = this.time.addEvent({
+      delay: 1000,
+      callback: () => {
+        countdown--;
+        if (countdown >= 0) {
+          countdownText.setText(countdown.toString());
+          // Pulse animation for countdown
+          this.tweens.add({
+            targets: countdownText,
+            scale: 1.5,
+            duration: 300,
+            yoyo: true
+          });
+        }
+      },
+      callbackScope: this,
+      repeat: 2
+    });
     
     // Single hard restart after a fixed delay instead of cascading timers
     this.time.delayedCall(3500, () => {

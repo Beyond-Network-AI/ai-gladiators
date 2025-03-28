@@ -24,4 +24,25 @@ export const GLADIATOR_STAT_RANGES = {
   intelligence: { min: 1, max: 3 },
   aggression: { min: 0.3, max: 0.9 },
   luck: { min: 0, max: 0.2 }
-}; 
+};
+
+// Collection of Phaser example sprite URLs for gladiators
+export const GLADIATOR_SPRITES = [
+  // Character sprites
+  'https://labs.phaser.io/assets/sprites/phaser-dude.png',
+  'https://labs.phaser.io/assets/sprites/phaser-ship.png',
+  'https://labs.phaser.io/assets/sprites/spinObj_01.png',
+  'https://labs.phaser.io/assets/sprites/mushroom2.png',
+  'https://labs.phaser.io/assets/sprites/ship.png',
+  'https://labs.phaser.io/assets/sprites/thrust_ship.png',
+  'https://labs.phaser.io/assets/sprites/ufo.png',
+  'https://labs.phaser.io/assets/sprites/sonic_havok_sanity.png',
+  'https://labs.phaser.io/assets/sprites/clown.png',
+  'https://labs.phaser.io/assets/sprites/wizball.png',
+  'https://labs.phaser.io/assets/sprites/beball1.png',
+  'https://labs.phaser.io/assets/sprites/xenon2_ship.png',
+  'https://labs.phaser.io/assets/sprites/bsquadron1.png'
+];
+
+// Reserve one sprite as fallback
+export const FALLBACK_SPRITE = 'https://labs.phaser.io/assets/sprites/mushroom2.png'; 

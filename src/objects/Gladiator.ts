@@ -31,7 +31,10 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   private healthBar: Phaser.GameObjects.Graphics | null = null;
   
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
-    super(scene, x, y, texture);
+    // Use fallback texture if the specified one isn't available
+    const availableTexture = scene.textures.exists(texture) ? texture : 'gladiator_fallback';
+    
+    super(scene, x, y, availableTexture);
     
     // Add to scene and enable physics
     scene.add.existing(this);
@@ -51,16 +54,40 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     this.stats.maxHealth = Math.floor(100 + this.stats.defense * 20);
     this.stats.health = this.stats.maxHealth;
     
-    // Create debug text for state
-    this.stateText = this.scene.add.text(
-      this.x, 
-      this.y - 40, 
-      this.currentState, 
-      { fontSize: '12px', color: '#ffffff' }
-    );
+    // Set scale to make gladiator more visible
+    this.setScale(1.0);
+    
+    // Add debug outline to see sprite boundaries
+    // @ts-ignore - accessing property
+    const debugMode = scene.debugMode || false;
+    if (debugMode) {
+      this.scene.add.rectangle(this.x, this.y, this.width, this.height)
+        .setStrokeStyle(2, 0xff0000)
+        .setOrigin(0.5, 0.5)
+        .setDepth(0);
+    }
+    
+    // Create debug text for state (only show in debug mode)
+    if (debugMode) {
+      this.stateText = this.scene.add.text(
+        this.x, 
+        this.y - 40, 
+        this.currentState, 
+        { 
+          fontSize: '12px', 
+          color: '#ffffff',
+          backgroundColor: '#000000',
+          padding: { x: 2, y: 2 }  
+        }
+      );
+    } else {
+      this.stateText = null;
+    }
     
     // Create health bar
     this.createHealthBar();
+    
+    console.log(`Gladiator created with texture: ${availableTexture}`);
   }
   
   // Generate random stats based on predefined ranges
@@ -90,14 +117,18 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     
     this.healthBar.clear();
     
+    // Draw a black outline for better visibility
+    this.healthBar.fillStyle(0x000000);
+    this.healthBar.fillRect(this.x - 27, this.y - 32, 54, 14);
+    
     // Background bar (red)
     this.healthBar.fillStyle(0xff0000);
-    this.healthBar.fillRect(this.x - 20, this.y - 25, 40, 5);
+    this.healthBar.fillRect(this.x - 25, this.y - 30, 50, 10);
     
     // Health bar (green) based on current health percentage
-    const healthPercent = (this.stats.health! / this.stats.maxHealth!);
+    const healthPercent = Math.max(0, this.stats.health! / this.stats.maxHealth!);
     this.healthBar.fillStyle(0x00ff00);
-    this.healthBar.fillRect(this.x - 20, this.y - 25, 40 * healthPercent, 5);
+    this.healthBar.fillRect(this.x - 25, this.y - 30, 50 * healthPercent, 10);
   }
   
   // Update FSM state based on conditions
@@ -230,17 +261,99 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   private executeEvadeBehavior(): void {
     if (!this.target) return;
     
-    // Move away from target
-    const angle = Phaser.Math.Angle.Between(
+    // Get angle away from target
+    const angleFromTarget = Phaser.Math.Angle.Between(
       this.x, this.y, this.target.x, this.target.y
     );
     
-    // Reverse angle (move away) and use speed
-    const speed = this.stats.speed * 1.2; // Faster when evading
-    this.setVelocity(
-      -Math.cos(angle) * speed,
-      -Math.sin(angle) * speed
-    );
+    // Calculate multiple potential evasion points in different directions
+    const evadeOptions = [];
+    const evadeDistance = this.stats.speed * 1.5; // Distance to check for evasion
+    
+    // Check 8 directions around the gladiator
+    for (let i = 0; i < 8; i++) {
+      const evadeAngle = angleFromTarget + Math.PI + (i * Math.PI / 4);
+      const evadeX = this.x + Math.cos(evadeAngle) * evadeDistance;
+      const evadeY = this.y + Math.sin(evadeAngle) * evadeDistance;
+      
+      // Ensure the position is within world bounds
+      const withinBounds = 
+        evadeX > 50 && 
+        evadeX < this.scene.physics.world.bounds.width - 50 && 
+        evadeY > 50 && 
+        evadeY < this.scene.physics.world.bounds.height - 50;
+      
+      if (withinBounds) {
+        // Calculate distance to all other gladiators from this evade point
+        let minDistance = Number.MAX_VALUE;
+        
+        // @ts-ignore - accessing private property
+        const allGladiators = (this.scene as any).gladiators || [];
+        
+        for (const otherGladiator of allGladiators) {
+          if (otherGladiator !== this && otherGladiator.active) {
+            const distance = Phaser.Math.Distance.Between(
+              evadeX, evadeY, otherGladiator.x, otherGladiator.y
+            );
+            minDistance = Math.min(minDistance, distance);
+          }
+        }
+        
+        // Add to options with safety score (higher is better)
+        evadeOptions.push({
+          x: evadeX,
+          y: evadeY,
+          score: minDistance
+        });
+      }
+    }
+    
+    // Choose the safest option (farthest from other gladiators)
+    if (evadeOptions.length > 0) {
+      // Sort by score (highest first)
+      evadeOptions.sort((a, b) => b.score - a.score);
+      
+      // Get the best option
+      const bestOption = evadeOptions[0];
+      
+      // Move towards the best evade position
+      const evadeAngle = Phaser.Math.Angle.Between(
+        this.x, this.y, bestOption.x, bestOption.y
+      );
+      
+      const speed = this.stats.speed * 1.2; // Faster when evading
+      this.setVelocity(
+        Math.cos(evadeAngle) * speed,
+        Math.sin(evadeAngle) * speed
+      );
+      
+      // Only very occasionally show "DODGE!" text (5% chance) to reduce clutter
+      if (Math.random() < 0.05) {
+        const dodgeText = this.scene.add.text(
+          this.x, 
+          this.y - 40, 
+          'DODGE!', 
+          { 
+            fontSize: '10px', 
+            color: '#ffff00',
+            fontStyle: 'bold',
+            backgroundColor: '#000000'
+          }
+        ).setOrigin(0.5, 0.5);
+        
+        // Remove text after a very short time
+        this.scene.time.delayedCall(200, () => {
+          dodgeText.destroy();
+        });
+      }
+    } else {
+      // Fallback to simple evasion if no safe spots
+      const speed = this.stats.speed * 1.2; // Faster when evading
+      this.setVelocity(
+        -Math.cos(angleFromTarget) * speed,
+        -Math.sin(angleFromTarget) * speed
+      );
+    }
   }
   
   private executeCollectPowerUpBehavior(): void {
@@ -262,6 +375,16 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   public attack(target: Gladiator): void {
     if (!target) return;
     
+    // Show attack animation - flash the sprite
+    this.setTint(0xff0000);
+    
+    // Reset tint after a short delay
+    this.scene.time.delayedCall(200, () => {
+      if (this.active) {
+        this.clearTint();
+      }
+    });
+    
     // Calculate damage based on strength, defense, and luck
     const baseDamage = this.stats.strength;
     const defense = target.stats.defense;
@@ -270,16 +393,26 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     if (Math.random() < target.stats.luck / 2) {
       console.log('Attack dodged!');
       
-      // Create a dodge text effect
-      this.scene.add.text(
-        target.x, 
-        target.y - 20, 
-        'DODGE!', 
-        { fontSize: '16px', color: '#ffff00' }
-      ).setOrigin(0.5)
-        .setDepth(1)
-        .setAlpha(1)
-        .setBlendMode(Phaser.BlendModes.ADD);
+      // Only show dodge text 10% of the time
+      if (Math.random() < 0.1) {
+        // Create a dodge text effect
+        const dodgeText = this.scene.add.text(
+          target.x, 
+          target.y - 20, 
+          'DODGE!', 
+          { 
+            fontSize: '12px', 
+            color: '#ffff00',
+            backgroundColor: '#000000' 
+          }
+        ).setOrigin(0.5)
+          .setDepth(1);
+          
+        // Remove the text quickly
+        this.scene.time.delayedCall(300, () => {
+          dodgeText.destroy();
+        });
+      }
       
       return;
     }
@@ -290,16 +423,26 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
       criticalMultiplier = 2;
       console.log('Critical hit!');
       
-      // Create a critical hit text effect
-      this.scene.add.text(
-        target.x, 
-        target.y - 20, 
-        'CRIT!', 
-        { fontSize: '16px', color: '#ff0000' }
-      ).setOrigin(0.5)
-        .setDepth(1)
-        .setAlpha(1)
-        .setBlendMode(Phaser.BlendModes.ADD);
+      // Only show crit text 20% of the time
+      if (Math.random() < 0.2) {
+        // Create a critical hit text effect
+        const critText = this.scene.add.text(
+          target.x, 
+          target.y - 20, 
+          'CRIT!', 
+          { 
+            fontSize: '12px', 
+            color: '#ff0000',
+            backgroundColor: '#000000'
+          }
+        ).setOrigin(0.5)
+          .setDepth(1);
+          
+        // Remove text quickly
+        this.scene.time.delayedCall(300, () => {
+          critText.destroy();
+        });
+      }
     }
     
     // Calculate final damage - Higher minimum damage for faster fights
@@ -308,26 +451,28 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     // Apply damage to target
     target.takeDamage(damage);
     
-    // Create a damage text effect
-    const damageText = this.scene.add.text(
-      target.x, 
-      target.y - 30, 
-      `-${damage}`, 
-      { fontSize: '16px', color: '#ff0000' }
-    ).setOrigin(0.5)
-      .setDepth(1);
-    
-    // Animate the damage text
-    this.scene.tweens.add({
-      targets: damageText,
-      y: damageText.y - 30,
-      alpha: 0,
-      duration: 800,
-      ease: 'Power2',
-      onComplete: () => {
-        damageText.destroy();
-      }
-    });
+    // Only show damage text 30% of the time
+    if (Math.random() < 0.3) {
+      // Create a damage text effect
+      const damageText = this.scene.add.text(
+        target.x, 
+        target.y - 30, 
+        `-${damage}`, 
+        { 
+          fontSize: '12px', 
+          color: '#ff0000',
+          backgroundColor: '#000000'
+        }
+      ).setOrigin(0.5)
+        .setDepth(1);
+      
+      // Remove text quickly
+      this.scene.time.delayedCall(400, () => {
+        if (damageText && damageText.active) {
+          damageText.destroy();
+        }
+      });
+    }
   }
   
   // Take damage and check for knockout
@@ -368,15 +513,30 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   public knockout(): void {
     console.log('Gladiator knocked out!');
     
-    // Create a knockout text effect
-    this.scene.add.text(
-      this.x, 
-      this.y, 
-      'K.O.!', 
-      { fontSize: '24px', color: '#ff0000', fontStyle: 'bold' }
-    ).setOrigin(0.5)
-      .setDepth(2)
-      .setAlpha(1);
+    // Only show KO text 50% of the time to reduce clutter
+    if (Math.random() < 0.5) {
+      // Create a knockout text effect
+      const koText = this.scene.add.text(
+        this.x, 
+        this.y, 
+        'K.O.!', 
+        { 
+          fontSize: '18px', 
+          color: '#ff0000', 
+          fontStyle: 'bold',
+          backgroundColor: '#000000'
+        }
+      ).setOrigin(0.5)
+        .setDepth(2);
+        
+      // Remove the KO text quickly
+      this.scene.time.delayedCall(600, () => {
+        koText.destroy();
+      });
+    }
+    
+    // Show a flash of red, then fade out
+    this.setTint(0xff0000);
     
     // Disable physics and fade out
     this.setActive(false);
@@ -397,7 +557,7 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     }
     
     // Remove from scene after delay
-    this.scene.time.delayedCall(1000, () => {
+    this.scene.time.delayedCall(500, () => {
       this.destroy();
     });
   }
@@ -414,16 +574,7 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   
   // Main update method called by scene
   update(): void {
-    // Skip if knocked out
-    if (!this.active) return;
-    
-    // Update FSM state
-    this.updateState();
-    
-    // Execute current state behavior
-    this.executeBehavior();
-    
-    // Update debug text
+    // Update state text position
     if (this.stateText) {
       this.stateText.setPosition(this.x, this.y - 40);
       this.stateText.setText(this.currentState);
@@ -431,5 +582,11 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     
     // Update health bar position
     this.updateHealthBar();
+    
+    // Update state based on conditions
+    this.updateState();
+    
+    // Execute behavior based on state
+    this.executeBehavior();
   }
 } 
