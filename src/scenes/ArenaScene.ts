@@ -31,6 +31,16 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Reset match state
+    this.data.set('matchEnding', false);
+    
+    // Clear any existing objects in case of incomplete cleanup
+    this.cleanupScene();
+    
+    // Reset arrays
+    this.spawnZones = [];
+    this.gladiators = [];
+    
     // Set arena background
     this.cameras.main.setBackgroundColor(COLORS.background);
     
@@ -90,6 +100,31 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.world.setBoundsCollision(true, true, true, true);
     
     console.log('ArenaScene created successfully!');
+  }
+
+  // Clean up scene elements to prevent memory leaks
+  private cleanupScene(): void {
+    // Clean up gladiators first
+    if (this.gladiators && this.gladiators.length > 0) {
+      for (const gladiator of this.gladiators) {
+        if (gladiator) {
+          gladiator.cleanup();
+        }
+      }
+      // Clear the array
+      this.gladiators = [];
+    }
+    
+    // Stop all timers to prevent duplicate events
+    this.time.removeAllEvents();
+    
+    // Clean up any remaining game objects
+    this.children.each(child => {
+      if (child instanceof Phaser.GameObjects.Text || 
+          child instanceof Phaser.GameObjects.Graphics) {
+        child.destroy();
+      }
+    });
   }
 
   update(): void {
@@ -350,7 +385,13 @@ export class ArenaScene extends Phaser.Scene {
   private endMatch(): void {
     console.log('Ending match...');
     
-    // Stop timer event
+    // Flag to prevent multiple restarts
+    if (this.data.has('matchEnding') && this.data.get('matchEnding')) {
+      return;
+    }
+    this.data.set('matchEnding', true);
+    
+    // Stop timer events but keep our new countdown timer
     this.time.removeAllEvents();
     
     // Stop all gladiator movements
@@ -385,19 +426,28 @@ export class ArenaScene extends Phaser.Scene {
       }
     ).setOrigin(0.5, 0.5);
     
-    // Update countdown every second
-    const countdownTimer = this.time.addEvent({
-      delay: 1000,
-      callback: () => {
-        countdown--;
-        if (countdown > 0) {
-          countdownText.setText(countdown.toString());
-        } else {
-          countdownText.setText('GO!');
-          this.scene.restart();
-        }
-      },
-      repeat: 3
+    // Single hard restart after a fixed delay instead of cascading timers
+    this.time.delayedCall(3500, () => {
+      console.log('Restarting scene now...');
+      
+      // Clean up scene properly before restarting
+      this.sceneCleanup();
+      
+      // Force a complete restart using a full scene transition
+      this.scene.stop('ArenaScene');
+      this.scene.start('ArenaScene');
     });
+  }
+  
+  // Called when scene shuts down
+  public sceneCleanup(): void {
+    // This can be called manually when scene transitions
+    console.log('ArenaScene cleanup');
+    
+    // Make sure we do a full cleanup
+    this.cleanupScene();
+    
+    // Reset the match ending flag
+    this.data.set('matchEnding', false);
   }
 } 

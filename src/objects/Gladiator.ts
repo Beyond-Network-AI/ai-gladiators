@@ -124,7 +124,7 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
       );
       
       // Increased attack range to better detect when gladiators are close
-      if (distanceToTarget < 80) {
+      if (distanceToTarget < 120) {
         this.currentState = GladiatorState.ATTACK;
       } else {
         this.currentState = GladiatorState.SEEK;
@@ -135,6 +135,12 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     // Add randomization to break stuck states - occasionally switch to idle
     if (this.currentState === GladiatorState.SEEK && Math.random() < 0.05) {
       this.currentState = GladiatorState.IDLE;
+      return;
+    }
+    
+    // Random chance to become aggressive
+    if (Math.random() < 0.02 && this.target) {
+      this.currentState = GladiatorState.SEEK;
       return;
     }
     
@@ -260,8 +266,8 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     const baseDamage = this.stats.strength;
     const defense = target.stats.defense;
     
-    // Check for dodge (based on target's luck)
-    if (Math.random() < target.stats.luck) {
+    // Reduced dodge chance for more reliable damage
+    if (Math.random() < target.stats.luck / 2) {
       console.log('Attack dodged!');
       
       // Create a dodge text effect
@@ -280,7 +286,7 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     
     // Check for critical hit (based on attacker's luck)
     let criticalMultiplier = 1;
-    if (Math.random() < this.stats.luck * 2) {
+    if (Math.random() < this.stats.luck * 3) {  // increased crit chance
       criticalMultiplier = 2;
       console.log('Critical hit!');
       
@@ -296,8 +302,8 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
         .setBlendMode(Phaser.BlendModes.ADD);
     }
     
-    // Calculate final damage - Increase minimum damage to ensure fights progress
-    const damage = Math.max(5, Math.floor((baseDamage - defense / 2) * criticalMultiplier));
+    // Calculate final damage - Higher minimum damage for faster fights
+    const damage = Math.max(10, Math.floor((baseDamage - defense / 2) * criticalMultiplier));
     
     // Apply damage to target
     target.takeDamage(damage);
@@ -335,6 +341,27 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     if (this.stats.health! <= 0) {
       this.knockout();
     }
+  }
+  
+  // Proper cleanup method to ensure all resources are freed
+  public cleanup(): void {
+    // Remove all associated scene objects
+    if (this.healthBar) {
+      this.healthBar.destroy();
+      this.healthBar = null;
+    }
+    
+    if (this.stateText) {
+      this.stateText.destroy();
+      this.stateText = null;
+    }
+    
+    // Clear references
+    this.target = null;
+    this.powerUpTarget = null;
+    
+    // Destroy the sprite itself
+    this.destroy();
   }
   
   // Knockout effect and removal
