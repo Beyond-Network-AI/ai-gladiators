@@ -538,7 +538,56 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     // Show a flash of red, then fade out
     this.setTint(0xff0000);
     
-    // Disable physics and fade out
+    // Add comedic death animation - dramatic spinning and shrinking
+    this.scene.tweens.add({
+      targets: this,
+      angle: 720, // Double spin (720 degrees)
+      scale: 0.1, // Shrink to tiny size
+      alpha: 0,   // Fade out completely
+      y: this.y - 30, // Float up slightly
+      duration: 1000,
+      ease: 'Cubic.easeOut'
+    });
+    
+    // Add some "stars" circling around the knocked out gladiator
+    const starCount = 5;
+    const stars = [];
+    
+    for (let i = 0; i < starCount; i++) {
+      const star = this.scene.add.text(
+        this.x, 
+        this.y, 
+        '★', 
+        { 
+          fontSize: '24px', 
+          color: '#ffff00',
+          stroke: '#000000',
+          strokeThickness: 3
+        }
+      ).setOrigin(0.5)
+        .setDepth(2);
+      
+      stars.push(star);
+      
+      // Create orbital animation for each star
+      const angle = (i / starCount) * Math.PI * 2;
+      const radius = 30;
+      const duration = 1000;
+      
+      this.scene.tweens.add({
+        targets: star,
+        x: this.x + Math.cos(angle) * radius,
+        y: this.y + Math.sin(angle) * radius - 30, // Rise up with gladiator
+        alpha: 0,
+        scale: 0.2,
+        duration: duration,
+        onComplete: () => {
+          star.destroy();
+        }
+      });
+    }
+    
+    // Disable physics and make inactive
     this.setActive(false);
     this.setVisible(false);
     if (this.body) {
@@ -556,8 +605,8 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
       this.stateText = null;
     }
     
-    // Remove from scene after delay
-    this.scene.time.delayedCall(500, () => {
+    // Remove from scene after animation completes
+    this.scene.time.delayedCall(1000, () => {
       this.destroy();
     });
   }
