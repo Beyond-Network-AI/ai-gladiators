@@ -66,6 +66,12 @@ export class ArenaScene extends Phaser.Scene {
     this.powerUps = [];
     this.hazards = [];
     
+    // Set camera to view the main arena area only
+    this.cameras.main.setViewport(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
+    // Set specific bounds for the arena to keep it contained to the top portion
+    this.physics.world.setBounds(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
     // Select random sprites for this round
     this.selectRandomSpritesForRound();
     
@@ -111,6 +117,11 @@ export class ArenaScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
+    
+    // Start the UI Scene
+    if (!this.scene.isActive('UIScene')) {
+      this.scene.launch('UIScene');
+    }
     
     // Spawn gladiators
     this.spawnGladiators();
@@ -346,44 +357,89 @@ export class ArenaScene extends Phaser.Scene {
   }
   
   private spawnGladiators(): void {
-    // Spawn gladiators in each zone
-    for (let i = 0; i < this.gladiatorCount; i++) {
-      // Get spawn zone (wrap around if more gladiators than zones)
-      const zoneIndex = i % this.spawnZones.length;
-      const zone = this.spawnZones[zoneIndex];
+    console.log('Spawning gladiators...');
+    
+    // Loop through each spawn zone
+    for (let i = 0; i < Math.min(this.spawnZones.length, this.gladiatorCount); i++) {
+      const zone = this.spawnZones[i];
       
-      // Calculate random position within zone
-      const x = zone.x + Math.random() * zone.width;
-      const y = zone.y + Math.random() * zone.height;
+      // Choose random position within zone
+      const x = Phaser.Math.Between(zone.x, zone.x + zone.width);
+      const y = Phaser.Math.Between(zone.y, zone.y + zone.height);
       
-      // Get texture key for this gladiator
-      const gladiatorSprite = this.currentRoundSprites[i];
+      // Get random sprite from the current round's selection
+      const spriteKey = this.currentRoundSprites[i] || 'gladiator_fallback';
       
-      // Create gladiator with selected sprite
-      const gladiator = new Gladiator(this, x, y, gladiatorSprite);
+      // Create gladiator
+      const gladiator = new Gladiator(this, x, y, spriteKey);
       
-      // Add to array for tracking
+      // Set unique ID for the gladiator
+      gladiator.id = i + 1;
+      
+      // Make gladiator interactable
+      gladiator.setInteractive({ useHandCursor: true });
+      
+      // Add click handler for gladiator selection
+      gladiator.on('pointerdown', () => {
+        this.selectGladiator(gladiator);
+      });
+      
+      // Add to gladiators array
       this.gladiators.push(gladiator);
       
-      // Create gladiator label (only in debug mode)
-      if (this.debugMode) {
-        this.add.text(
-          gladiator.x,
-          gladiator.y - 55,
-          `Gladiator ${i + 1}`,
-          {
-            fontFamily: 'Arial',
-            fontSize: '14px',
-            color: COLORS.primaryText,
-            backgroundColor: '#00000080',
-            padding: { x: 4, y: 2 }
-          }
-        ).setOrigin(0.5, 0.5)
-         .setDepth(1);
-      }
+      console.log(`Gladiator ${i + 1} spawned at (${x}, ${y}) with sprite ${spriteKey}`);
     }
     
-    console.log(`${this.gladiators.length} gladiators spawned with unique sprites!`);
+    // Set initial targets for gladiators
+    this.updateGladiatorTargets();
+  }
+  
+  // Add a method to handle gladiator selection
+  private selectGladiator(gladiator: Gladiator): void {
+    // First log the gladiator to debug
+    console.log('Gladiator selected in ArenaScene:', gladiator);
+    console.log('Gladiator ID:', gladiator.id);
+    console.log('Gladiator stats:', gladiator.getStats());
+
+    // Make sure the gladiator is valid before emitting
+    if (!gladiator || !gladiator.active) {
+      console.error('Attempted to select an invalid or inactive gladiator');
+      return;
+    }
+
+    // Highlight the selected gladiator
+    this.gladiators.forEach(g => {
+      const outline = g.getData('selectOutline');
+      if (outline) {
+        outline.destroy();
+      }
+    });
+    
+    // Add a selection outline to the selected gladiator
+    const outline = this.add.circle(gladiator.x, gladiator.y, 35, 0xffff00, 0.3);
+    outline.setStrokeStyle(2, 0xffff00);
+    gladiator.setData('selectOutline', outline);
+
+    // Make sure to update the outline position when the gladiator moves
+    const outlineUpdate = this.time.addEvent({
+      delay: 100,
+      callback: () => {
+        if (outline && outline.active && gladiator && gladiator.active) {
+          outline.setPosition(gladiator.x, gladiator.y);
+        } else {
+          // Clean up the timer if gladiator is no longer active
+          outlineUpdate.remove();
+          if (outline && outline.active) {
+            outline.destroy();
+          }
+        }
+      },
+      callbackScope: this,
+      loop: true
+    });
+
+    // Emit event that UIScene can listen to - do this AFTER all setup
+    this.events.emit('gladiatorSelected', gladiator);
   }
   
   private updateGladiatorTargets(): void {
@@ -512,10 +568,16 @@ export class ArenaScene extends Phaser.Scene {
         console.log(`Gladiator is the winner!`);
         const winner = activeGladiators[0];
         
+        // Emit match end event for UI scene
+        this.events.emit('matchEnd', winner || null);
+        
         // Create a clean game over overlay
         this.createGameOverScreen(winner);
       } else {
         console.log('No gladiators left - draw!');
+        
+        // Emit match end event for UI scene
+        this.events.emit('matchEnd', null);
         
         // Create a clean game over overlay for a draw
         this.createGameOverScreen(null);

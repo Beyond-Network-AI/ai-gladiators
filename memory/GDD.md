@@ -75,7 +75,6 @@ Each AI uses a **basic FSM or behavior tree** with randomized parameters.
 
 **Power-Ups:**
 - Shield
-- Speed Boost
 - Random Chaos Effect
 
 All arenas are **tile-based** and procedurally varied.

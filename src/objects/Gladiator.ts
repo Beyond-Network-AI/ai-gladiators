@@ -15,6 +15,9 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   // Stats
   public stats: IGladiatorStats;
   
+  // Unique identifier
+  public id: number = 0;
+  
   // FSM state
   private currentState: GladiatorState;
   
@@ -649,5 +652,38 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     
     // Execute behavior based on state
     this.executeBehavior();
+  }
+  
+  // Add getStats method to return the gladiator's stats
+  public getStats(): IGladiatorStats {
+    // Ensure stats exist
+    if (!this.stats) {
+      console.error('Stats object is undefined - regenerating');
+      this.stats = this.generateRandomStats();
+      this.stats.maxHealth = Math.floor(100 + this.stats.defense * 20);
+      this.stats.health = this.stats.maxHealth;
+    }
+
+    // Make sure to include all stats with default values if missing
+    const formattedStats = { 
+      strength: this.stats.strength || 0,
+      speed: this.stats.speed || 0,
+      defense: this.stats.defense || 0,
+      intelligence: this.stats.intelligence || 0,
+      aggression: this.stats.aggression || 0,
+      luck: this.stats.luck || 0,
+      health: this.stats.health || 0,
+      maxHealth: this.stats.maxHealth || 100
+    };
+
+    // Log formatted stats for debugging
+    console.log(`Gladiator #${this.id} stats:`, formattedStats);
+
+    return formattedStats;
+  }
+  
+  // Add getter for health that properly accesses the stats.health value
+  public get health(): number {
+    return this.stats.health || 0;
   }
 } 

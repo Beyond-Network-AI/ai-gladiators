@@ -85,7 +85,7 @@ button:focus-visible {
 
 #game-container {
   width: 800px;
-  height: 600px;
+  height: 840px;
   margin: 0 auto;
   display: flex;
   justify-content: center;

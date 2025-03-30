@@ -2,13 +2,14 @@ import Phaser from 'phaser';
 import './style.css';
 import { BootScene } from './scenes/BootScene';
 import { ArenaScene } from './scenes/ArenaScene';
+import { UIScene } from './scenes/UIScene';
 
 // Game configuration
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 800,
-  height: 600,
-  backgroundColor: '#2d2d2d',
+  height: 840,
+  backgroundColor: '#1e1e1e',
   parent: 'game-container',
   physics: {
     default: 'arcade',
@@ -17,7 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false
     }
   },
-  scene: [BootScene, ArenaScene]
+  scene: [BootScene, ArenaScene, UIScene]
 };
 
 // Initialize the game

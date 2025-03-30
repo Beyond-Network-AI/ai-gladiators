@@ -29,15 +29,10 @@ export const GLADIATOR_STAT_RANGES = {
 // Collection of Phaser example sprite URLs for gladiators
 export const GLADIATOR_SPRITES = [
   // Character sprites
-  'https://labs.phaser.io/assets/sprites/phaser-dude.png',
-  'https://labs.phaser.io/assets/sprites/spinObj_01.png',
   'https://labs.phaser.io/assets/sprites/mushroom2.png',
-  'https://labs.phaser.io/assets/sprites/ship.png',
   'https://labs.phaser.io/assets/sprites/sonic_havok_sanity.png',
-  'https://labs.phaser.io/assets/sprites/clown.png',
   'https://labs.phaser.io/assets/sprites/wizball.png',
   'https://labs.phaser.io/assets/sprites/beball1.png',
-  'https://labs.phaser.io/assets/sprites/bsquadron1.png'
 ];
 
 // Reserve one sprite as fallback
