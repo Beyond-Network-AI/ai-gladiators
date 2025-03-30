@@ -4,6 +4,7 @@ import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
 import { Gladiator } from '../objects/Gladiator';
 import { IGladiatorStats } from '../types/IGladiatorStats';
 import { zoraClient } from '../utils/zoraClient';
+import { matchManager } from '../utils/MatchManager';
 
 // Interface for Gladiator properties and methods used in UIScene
 interface GladiatorUI {
@@ -240,6 +241,38 @@ export class UIScene extends Phaser.Scene {
       duration: 500,
       ease: 'Power2'
     });
+
+    // Add stats button next to wallet button
+    const statsButton = this.add.rectangle(
+      GAME_WIDTH / 2 - 350, 
+      GAME_HEIGHT + 120,
+      60, 
+      30, 
+      0x444444, 
+      0.8
+    ).setInteractive({ useHandCursor: true })
+     .setOrigin(0.5);
+    
+    const statsButtonText = this.add.text(
+      GAME_WIDTH / 2 - 350,
+      GAME_HEIGHT + 120,
+      'Stats',
+      {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5);
+    
+    // Add click handler for stats button
+    statsButton.on('pointerdown', () => {
+      this.showPlayerStats();
+    });
+    
+    // Add to wallet container
+    this.walletButton.add([statsButton, statsButtonText]);
+    this.walletButton.setData('statsButton', statsButton);
+    this.walletButton.setData('statsButtonText', statsButtonText);
   }
 
   private setupEventListeners(): void {
@@ -273,6 +306,12 @@ export class UIScene extends Phaser.Scene {
             console.log(`Wallet connected with ${this.tokenBalance} $GLAD`);
           }
           this.updateWalletUI();
+          
+          // Show a welcome back message if player has stats
+          const playerStats = matchManager.getPlayerStats(this.walletAddress);
+          if (playerStats && playerStats.matchesWatched > 0) {
+            this.showWelcomeBack(playerStats);
+          }
         });
       } else {
         console.error('Failed to connect wallet');
@@ -424,7 +463,7 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  private handleMatchEnd(winner: (Gladiator & GladiatorUI) | null): void {
+  private handleMatchEnd(winner: (Gladiator & GladiatorUI) | null, matchStats?: any): void {
     // Check if player's prediction was correct
     if (this.predictionMade && this.selectedGladiator && winner) {
       const isWinner = this.selectedGladiator.id === winner.id;
@@ -451,6 +490,11 @@ export class UIScene extends Phaser.Scene {
         // Show losing message
         this.showPredictionResult(false, 0);
       }
+    }
+    
+    // Show match statistics if available
+    if (matchStats) {
+      this.showMatchStatistics(matchStats);
     }
     
     // Reset prediction state for next match
@@ -611,6 +655,295 @@ export class UIScene extends Phaser.Scene {
       onComplete: () => {
         errorText.destroy();
       }
+    });
+  }
+
+  // Add a method to show match statistics
+  private showMatchStatistics(stats: {
+    matchNumber: number;
+    duration: number;
+    powerUpsCollected: number;
+    hazardsTriggered: number;
+  }): void {
+    // Create a floating notification with match stats
+    const statsBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT + 200,
+      500,
+      120,
+      0x000000,
+      0.8
+    ).setOrigin(0.5);
+    
+    // Add title
+    const statsTitle = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT + 150,
+      `Match #${stats.matchNumber} Summary`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: COLORS.highlight,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+    
+    // Add duration
+    const durationText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT + 180,
+      `Duration: ${stats.duration.toFixed(1)}s`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5);
+    
+    // Add power-ups
+    const powerUpsText = this.add.text(
+      GAME_WIDTH / 2 - 100,
+      GAME_HEIGHT + 210,
+      `Power-ups: ${stats.powerUpsCollected}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5);
+    
+    // Add hazards
+    const hazardsText = this.add.text(
+      GAME_WIDTH / 2 + 100,
+      GAME_HEIGHT + 210,
+      `Hazards: ${stats.hazardsTriggered}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5);
+    
+    // Group all elements
+    const statsGroup = this.add.container();
+    statsGroup.add([statsBg, statsTitle, durationText, powerUpsText, hazardsText]);
+    
+    // Show and then fade out
+    this.tweens.add({
+      targets: statsGroup,
+      y: -100, // Move up to be visible
+      duration: 1000,
+      ease: 'Power2',
+      delay: 2000, // Wait for prediction results to show first
+      hold: 3000, // Keep visible for 3 seconds
+      yoyo: true,
+      onComplete: () => {
+        statsGroup.destroy();
+      }
+    });
+  }
+
+  private showWelcomeBack(playerStats: any): void {
+    // Create a welcome back message with player stats
+    const winRate = playerStats.predictionsTotal > 0 
+      ? ((playerStats.predictionsCorrect / playerStats.predictionsTotal) * 100).toFixed(1)
+      : 0;
+    
+    const welcomeText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT + 60,
+      `Welcome back! Your prediction win rate: ${winRate}%`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: COLORS.highlight,
+        backgroundColor: '#00000088',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5);
+    
+    // Fade out after a few seconds
+    this.tweens.add({
+      targets: welcomeText,
+      alpha: { from: 1, to: 0 },
+      y: welcomeText.y - 20,
+      duration: 3000,
+      delay: 2000,
+      ease: 'Power2',
+      onComplete: () => {
+        welcomeText.destroy();
+      }
+    });
+  }
+
+  private showPlayerStats(): void {
+    // Only show stats if wallet is connected
+    if (!this.isWalletConnected) {
+      this.showErrorMessage('Connect wallet to view stats');
+      return;
+    }
+    
+    // Get player stats from match manager
+    const playerStats = matchManager.getPlayerStats(this.walletAddress);
+    
+    if (!playerStats || playerStats.matchesWatched === 0) {
+      this.showErrorMessage('No stats available yet');
+      return;
+    }
+    
+    // Create a stats panel
+    const statsPanelBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      400,
+      300,
+      0x000000,
+      0.9
+    ).setOrigin(0.5);
+    
+    // Add title
+    const title = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 120,
+      'YOUR STATISTICS',
+      {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: COLORS.highlight,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+    
+    // Calculate stats
+    const winRate = playerStats.predictionsTotal > 0
+      ? ((playerStats.predictionsCorrect / playerStats.predictionsTotal) * 100).toFixed(1) 
+      : '0.0';
+    
+    const netProfit = playerStats.tokensWon - playerStats.tokensSpent;
+    
+    // Add stats text
+    const statsText = [
+      `Matches Watched: ${playerStats.matchesWatched}`,
+      `Predictions Made: ${playerStats.predictionsTotal}`,
+      `Correct Predictions: ${playerStats.predictionsCorrect}`,
+      `Win Rate: ${winRate}%`,
+      `Tokens Spent: ${playerStats.tokensSpent} $GLAD`,
+      `Tokens Won: ${playerStats.tokensWon} $GLAD`,
+      `Net Profit: ${netProfit} $GLAD`
+    ];
+    
+    const statsContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
+    
+    statsText.forEach((text, index) => {
+      const textColor = index === 6 
+        ? (netProfit >= 0 ? '#44ff44' : '#ff4444') 
+        : COLORS.primaryText;
+        
+      statsContainer.add(
+        this.add.text(0, index * 30, text, {
+          fontFamily: 'Arial',
+          fontSize: '16px',
+          color: textColor
+        }).setOrigin(0.5)
+      );
+    });
+    
+    // Add leaderboard section
+    const leaderboardTitle = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 110,
+      'TOP PREDICTORS',
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: COLORS.highlight,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+    
+    // Get top 3 players from leaderboard
+    const topPlayers = matchManager.getLeaderboard().slice(0, 3);
+    
+    const leaderboardContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 140);
+    
+    if (topPlayers.length > 0) {
+      topPlayers.forEach((player, index) => {
+        const playerWinRate = ((player.predictionsCorrect / player.predictionsTotal) * 100).toFixed(1);
+        const playerAddress = player.address.substr(0, 6) + '...' + player.address.substr(-4);
+        
+        // Highlight current player
+        const isCurrentPlayer = player.address === this.walletAddress;
+        
+        leaderboardContainer.add(
+          this.add.text(0, index * 20, `${index + 1}. ${playerAddress} - ${playerWinRate}%`, {
+            fontFamily: 'Arial',
+            fontSize: '14px',
+            color: isCurrentPlayer ? '#ffff00' : COLORS.primaryText
+          }).setOrigin(0.5)
+        );
+      });
+    } else {
+      leaderboardContainer.add(
+        this.add.text(0, 0, 'No leaderboard data yet', {
+          fontFamily: 'Arial',
+          fontSize: '14px',
+          color: COLORS.secondaryText
+        }).setOrigin(0.5)
+      );
+    }
+    
+    // Add close button
+    const closeButton = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 180,
+      120,
+      30,
+      0x444444
+    ).setInteractive({ useHandCursor: true })
+     .setOrigin(0.5);
+    
+    const closeText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 180,
+      'CLOSE',
+      {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5);
+    
+    // Group all elements
+    const statsPanel = this.add.container(0, 0);
+    statsPanel.add([
+      statsPanelBg,
+      title,
+      statsContainer,
+      leaderboardTitle,
+      leaderboardContainer,
+      closeButton,
+      closeText
+    ]);
+    
+    // Add click handler for close button
+    closeButton.on('pointerdown', () => {
+      // Fade out and destroy
+      this.tweens.add({
+        targets: statsPanel,
+        alpha: { from: 1, to: 0 },
+        duration: 300,
+        onComplete: () => {
+          statsPanel.destroy();
+        }
+      });
+    });
+    
+    // Fade in effect
+    statsPanel.setAlpha(0);
+    this.tweens.add({
+      targets: statsPanel,
+      alpha: { from: 0, to: 1 },
+      duration: 300
     });
   }
 } 

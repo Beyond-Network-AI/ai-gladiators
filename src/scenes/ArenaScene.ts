@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT, GLADIATOR_SPRITES, FALLBACK_SPRITE } from '../utils/constants';
+import { COLORS, GAME_WIDTH, GAME_HEIGHT, GLADIATOR_SPRITES, FALLBACK_SPRITE, MATCH_DURATION, RESET_TIME } from '../utils/constants';
 import { Gladiator } from '../objects/Gladiator';
 import { PowerUp } from '../objects/PowerUp';
 import { ArenaHazard } from '../objects/ArenaHazard';
 import { PowerUpType } from '../types/PowerUpType';
 import { HazardDirection } from '../types/HazardType';
 import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
+import { matchManager, MatchResult } from '../utils/MatchManager';
 
 export class ArenaScene extends Phaser.Scene {
   // Spawn zones for gladiators
@@ -27,8 +28,24 @@ export class ArenaScene extends Phaser.Scene {
   private debugMode: boolean;
   
   // Match timer
-  private matchTimer: number = 60; // 60 seconds match duration
+  private matchTimer: number = MATCH_DURATION; // Use constant for match duration
   private matchTimerText: Phaser.GameObjects.Text | null = null;
+  
+  // Match statistics
+  private matchCount: number = 0;
+  private matchStatistics: {
+    matchNumber: number;
+    winnerId?: number;
+    winnerName?: string;
+    duration: number;
+    powerUpsCollected: number;
+    hazardsTriggered: number;
+  }[] = [];
+  
+  // Current match tracking
+  private currentMatchPowerUpsCollected: number = 0;
+  private currentMatchHazardsTriggered: number = 0;
+  private matchStartTime: number = 0;
   
   // Sprite selection for this round
   private currentRoundSprites: string[] = [];
@@ -73,6 +90,16 @@ export class ArenaScene extends Phaser.Scene {
     this.powerUps = [];
     this.hazards = [];
     
+    // Reset match statistics for this round
+    this.currentMatchPowerUpsCollected = 0;
+    this.currentMatchHazardsTriggered = 0;
+    
+    // Record match start time
+    this.matchStartTime = this.time.now;
+    
+    // Get next match ID from MatchManager
+    this.matchCount = matchManager.getNextMatchId();
+    
     // Set camera to view the main arena area only
     this.cameras.main.setViewport(0, 0, GAME_WIDTH, GAME_HEIGHT);
     
@@ -85,11 +112,11 @@ export class ArenaScene extends Phaser.Scene {
     // Set arena background
     this.cameras.main.setBackgroundColor(COLORS.background);
     
-    // Create arena title
+    // Create arena title with match number
     this.add.text(
       GAME_WIDTH / 2, 
       30, 
-      'AI Gladiators Arena', 
+      `AI Gladiators Arena - Match #${this.matchCount}`, 
       { 
         fontFamily: 'Arial', 
         fontSize: '28px', 
@@ -105,11 +132,14 @@ export class ArenaScene extends Phaser.Scene {
       this.visualizeSpawnZones();
     }
     
+    // Reset match timer
+    this.matchTimer = MATCH_DURATION;
+    
     // Create match timer text
     this.matchTimerText = this.add.text(
       GAME_WIDTH / 2,
       70,
-      `Time: ${this.matchTimer}`,
+      `Time: ${this.matchTimer}s`,
       {
         fontFamily: 'Arial',
         fontSize: '18px',
@@ -172,7 +202,10 @@ export class ArenaScene extends Phaser.Scene {
     // Enable world bounds collision feedback to prevent sticking to edges
     this.physics.world.setBoundsCollision(true, true, true, true);
     
-    console.log('ArenaScene created successfully!');
+    console.log(`ArenaScene created successfully for match #${this.matchCount}!`);
+    
+    // Add a visual "starting" effect
+    this.createRoundStartEffect();
   }
 
   // Clean up scene elements to prevent memory leaks
@@ -240,7 +273,7 @@ export class ArenaScene extends Phaser.Scene {
     });
     
     // Reset match timer
-    this.matchTimer = 60;
+    this.matchTimer = MATCH_DURATION;
     
     // Clear any cached data
     this.data.set('matchEnding', false);
@@ -558,7 +591,29 @@ export class ArenaScene extends Phaser.Scene {
     
     // Update text
     if (this.matchTimerText) {
-      this.matchTimerText.setText(`Time: ${this.matchTimer}`);
+      // Make the timer change color as it gets closer to 0
+      let timerColor = COLORS.primaryText;
+      if (this.matchTimer <= 10) {
+        // Flash red for last 10 seconds
+        timerColor = this.matchTimer % 2 === 0 ? '#ff4444' : '#ff0000';
+      } else if (this.matchTimer <= 20) {
+        // Yellow warning for 20-10 seconds remaining
+        timerColor = '#ffff00';
+      }
+      
+      this.matchTimerText.setText(`Time: ${this.matchTimer}s`);
+      this.matchTimerText.setColor(timerColor);
+      
+      // Pulse effect for last 10 seconds
+      if (this.matchTimer <= 10 && this.matchTimer > 0) {
+        this.tweens.add({
+          targets: this.matchTimerText,
+          scale: { from: 1, to: 1.2 },
+          duration: 200,
+          yoyo: true,
+          ease: 'Sine.easeInOut'
+        });
+      }
     }
     
     // Check for time up
@@ -573,31 +628,162 @@ export class ArenaScene extends Phaser.Scene {
     const activeGladiators = this.gladiators.filter(g => g.active);
     
     // If only one or zero left, end match
-    if (activeGladiators.length <= 1) {
+    let shouldEndMatch = activeGladiators.length <= 1;
+    
+    // If the match should end, handle results
+    if (shouldEndMatch) {
+      // Calculate match duration in seconds
+      const matchDuration = (this.time.now - this.matchStartTime) / 1000;
+      
+      // Prepare match result for record keeping
+      const matchResult: MatchResult = {
+        matchId: this.matchCount,
+        winner: null, // Will be set if there's a winner
+        duration: matchDuration,
+        timestamp: Date.now(),
+        stats: {
+          powerUpsCollected: this.currentMatchPowerUpsCollected,
+          hazardsTriggered: this.currentMatchHazardsTriggered
+        },
+        predictions: this.predictions.map(p => ({
+          address: p.walletAddress,
+          gladiatorId: p.gladiatorId,
+          amount: p.amount,
+          wasCorrect: false // Will be updated for correct predictions
+        }))
+      };
+      
       if (activeGladiators.length === 1) {
-        console.log(`Gladiator is the winner!`);
         const winner = activeGladiators[0];
+        console.log(`Gladiator ${winner.id} is the winner!`);
         
-        // Emit match end event for UI scene
-        this.events.emit('matchEnd', winner || null);
+        // Set winner in match result
+        matchResult.winner = {
+          id: winner.id,
+          name: `Gladiator ${winner.id}`
+        };
+        
+        // Mark correct predictions
+        matchResult.predictions.forEach(p => {
+          if (p.gladiatorId === winner.id) {
+            p.wasCorrect = true;
+          }
+        });
+        
+        // Record match statistics
+        this.matchStatistics.push({
+          matchNumber: this.matchCount,
+          winnerId: winner.id,
+          winnerName: `Gladiator ${winner.id}`,
+          duration: matchDuration,
+          powerUpsCollected: this.currentMatchPowerUpsCollected,
+          hazardsTriggered: this.currentMatchHazardsTriggered
+        });
+        
+        // Emit match end event for UI scene with stats
+        this.events.emit('matchEnd', winner, {
+          matchNumber: this.matchCount,
+          duration: matchDuration,
+          powerUpsCollected: this.currentMatchPowerUpsCollected,
+          hazardsTriggered: this.currentMatchHazardsTriggered
+        });
         
         // Create a clean game over overlay
         this.createGameOverScreen(winner);
       } else {
         console.log('No gladiators left - draw!');
         
+        // Record match statistics for a draw
+        this.matchStatistics.push({
+          matchNumber: this.matchCount,
+          duration: matchDuration,
+          powerUpsCollected: this.currentMatchPowerUpsCollected,
+          hazardsTriggered: this.currentMatchHazardsTriggered
+        });
+        
         // Emit match end event for UI scene
-        this.events.emit('matchEnd', null);
+        this.events.emit('matchEnd', null, {
+          matchNumber: this.matchCount,
+          duration: matchDuration,
+          powerUpsCollected: this.currentMatchPowerUpsCollected,
+          hazardsTriggered: this.currentMatchHazardsTriggered
+        });
         
         // Create a clean game over overlay for a draw
         this.createGameOverScreen(null);
       }
       
+      // Record the match in MatchManager
+      matchManager.recordMatch(matchResult);
+      
       this.endMatch();
     }
   }
   
-  // Create a clean, attractive game over screen
+  // Create a new visual effect for round start
+  private createRoundStartEffect(): void {
+    // Add a "Round X" text that zooms in
+    const roundText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      `MATCH ${this.matchCount}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '64px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 6,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5)
+     .setAlpha(0)
+     .setScale(3);
+    
+    // Add "FIGHT!" text that appears after
+    const fightText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 80,
+      'FIGHT!',
+      {
+        fontFamily: 'Arial',
+        fontSize: '72px',
+        color: '#ff0000',
+        stroke: '#000000',
+        strokeThickness: 8,
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5)
+     .setAlpha(0)
+     .setScale(0.5);
+    
+    // First animate the round text
+    this.tweens.add({
+      targets: roundText,
+      alpha: { from: 0, to: 1 },
+      scale: { from: 3, to: 1 },
+      duration: 800,
+      ease: 'Bounce.Out',
+      onComplete: () => {
+        // Then show the fight text
+        this.tweens.add({
+          targets: fightText,
+          alpha: { from: 0, to: 1 },
+          scale: { from: 0.5, to: 2 },
+          duration: 600,
+          ease: 'Power2',
+          yoyo: true,
+          hold: 300,
+          onComplete: () => {
+            // Clean up both texts
+            roundText.destroy();
+            fightText.destroy();
+          }
+        });
+      }
+    });
+  }
+
+  // Create a clean, attractive game over screen with improved stats
   private createGameOverScreen(winner: Gladiator | null): void {
     // Create semi-transparent overlay
     const overlay = this.add.rectangle(
@@ -661,6 +847,19 @@ export class ArenaScene extends Phaser.Scene {
       // Create ribbon-like celebration effect
       this.createConfettiEffect(GAME_WIDTH / 2, GAME_HEIGHT / 2);
       
+      // Add winner ID text
+      this.add.text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2 + 100,
+        `Gladiator ${winner.id}`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '32px',
+          color: '#ffffff',
+          fontStyle: 'bold'
+        }
+      ).setOrigin(0.5, 0.5)
+       .setDepth(10);
     } else {
       // Draw text - if no winner
       this.add.text(
@@ -679,42 +878,47 @@ export class ArenaScene extends Phaser.Scene {
        .setDepth(10);
     }
     
-    // We're also adding some code to display stats about power-ups and hazards
-    let powerUpText = '';
-    if (this.powerUps.length > 0) {
-      powerUpText = `Power-ups still active: ${this.powerUps.length}`;
-    } else {
-      powerUpText = 'All power-ups collected';
-    }
+    // Add match statistics
+    const currentMatchStats = this.matchStatistics[this.matchStatistics.length - 1];
     
+    // Match duration
     this.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 160,
-      powerUpText,
+      GAME_HEIGHT - 200,
+      `Match Duration: ${currentMatchStats.duration.toFixed(1)}s`,
       {
         fontFamily: 'Arial',
-        fontSize: '16px',
-        color: COLORS.secondaryText
+        fontSize: '18px',
+        color: COLORS.primaryText
       }
-    ).setOrigin(0.5, 0.5);
+    ).setOrigin(0.5, 0.5)
+     .setDepth(10);
     
-    let hazardText = '';
-    if (this.hazards.length > 0) {
-      hazardText = `Hazards still active: ${this.hazards.length}`;
-    } else {
-      hazardText = 'No hazards remaining';
-    }
-    
+    // Power-ups collected
     this.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 130,
-      hazardText,
+      GAME_HEIGHT - 170,
+      `Power-ups Collected: ${currentMatchStats.powerUpsCollected}`,
       {
         fontFamily: 'Arial',
-        fontSize: '16px',
-        color: COLORS.secondaryText
+        fontSize: '18px',
+        color: COLORS.primaryText
       }
-    ).setOrigin(0.5, 0.5);
+    ).setOrigin(0.5, 0.5)
+     .setDepth(10);
+    
+    // Hazards triggered
+    this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 140,
+      `Hazards Triggered: ${currentMatchStats.hazardsTriggered}`,
+      {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: COLORS.primaryText
+      }
+    ).setOrigin(0.5, 0.5)
+     .setDepth(10);
   }
   
   // Create ribbon-like celebration effect
@@ -823,7 +1027,7 @@ export class ArenaScene extends Phaser.Scene {
      .setDepth(11);
     
     // Countdown effect
-    let countdown = 3;
+    let countdown = RESET_TIME; // Use the constant instead of hardcoded value
     const countdownText = this.add.text(
       GAME_WIDTH / 2,
       GAME_HEIGHT - 40,
@@ -839,28 +1043,34 @@ export class ArenaScene extends Phaser.Scene {
     ).setOrigin(0.5, 0.5)
      .setDepth(11);
     
-    // Animate countdown
+    // Animate countdown with a smoother sequence
+    const countdownInterval = 1000; // 1 second between counts
     const countdownEvent = this.time.addEvent({
-      delay: 1000,
+      delay: countdownInterval,
       callback: () => {
         countdown--;
         if (countdown >= 0) {
           countdownText.setText(countdown.toString());
+          
           // Pulse animation for countdown
           this.tweens.add({
             targets: countdownText,
-            scale: 1.5,
+            scale: { from: 1, to: 1.5 },
             duration: 300,
-            yoyo: true
+            yoyo: true,
+            ease: 'Sine.easeInOut'
           });
         }
       },
       callbackScope: this,
-      repeat: 2
+      repeat: RESET_TIME - 1 // One less than reset time to account for starting at 0
     });
     
+    // Add a transition effect between rounds
+    this.cameras.main.fadeOut(RESET_TIME * 1000 - 500, 0, 0, 0);
+    
     // Single hard restart after a fixed delay instead of cascading timers
-    this.time.delayedCall(3500, () => {
+    this.time.delayedCall(RESET_TIME * 1000, () => {
       console.log('Restarting scene now...');
       
       // Clean up scene properly before restarting
@@ -869,6 +1079,9 @@ export class ArenaScene extends Phaser.Scene {
       // Force a complete restart using a full scene transition
       this.scene.stop('ArenaScene');
       this.scene.start('ArenaScene');
+      
+      // Fade back in
+      this.cameras.main.fadeIn(500, 0, 0, 0);
     });
     
     // Clear predictions for the next match
@@ -993,6 +1206,9 @@ export class ArenaScene extends Phaser.Scene {
     // Apply power-up effect to the gladiator
     typedPowerUp.applyEffect(typedGladiator);
     
+    // Track power-ups collected stat
+    this.currentMatchPowerUpsCollected++;
+    
     // Remove power-up from array (it's already destroyed in applyEffect)
     this.powerUps = this.powerUps.filter(p => p !== typedPowerUp);
   }
@@ -1008,6 +1224,9 @@ export class ArenaScene extends Phaser.Scene {
     
     // Apply hazard effect to the gladiator
     typedHazard.applyEffect(typedGladiator);
+    
+    // Track hazards triggered stat
+    this.currentMatchHazardsTriggered++;
   }
 
   // Handle prediction events from UI scene
