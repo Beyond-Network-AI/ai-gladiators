@@ -3,6 +3,7 @@ import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/constants';
 import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
 import { Gladiator } from '../objects/Gladiator';
 import { IGladiatorStats } from '../types/IGladiatorStats';
+import { zoraClient } from '../utils/zoraClient';
 
 // Interface for Gladiator properties and methods used in UIScene
 interface GladiatorUI {
@@ -259,18 +260,24 @@ export class UIScene extends Phaser.Scene {
   }
 
   private connectWallet(): void {
-    // In dev mode, simulate wallet connection
-    if (this.isDevMode) {
-      this.isWalletConnected = true;
-      this.walletAddress = '0x' + Math.random().toString(16).substr(2, 38);
-      this.tokenBalance = 100; // Give mock balance
-      this.updateWalletUI();
-      return;
-    }
-
-    // In production mode, integrate with Zora Coins SDK
-    // This would be implemented with zoraClient in the future
-    console.log('Wallet connection would be implemented with Zora SDK');
+    // In dev mode, simulate wallet connection using zoraClient
+    zoraClient.connectWallet().then(result => {
+      if (result.isConnected) {
+        this.isWalletConnected = true;
+        this.walletAddress = result.address;
+        
+        // Give free tokens to new players in dev mode
+        zoraClient.giveFreeTokens(this.walletAddress).then(mintResult => {
+          if (mintResult.success && mintResult.data) {
+            this.tokenBalance = mintResult.data.newBalance;
+            console.log(`Wallet connected with ${this.tokenBalance} $GLAD`);
+          }
+          this.updateWalletUI();
+        });
+      } else {
+        console.error('Failed to connect wallet');
+      }
+    });
   }
 
   private updateWalletUI(): void {
@@ -356,24 +363,36 @@ export class UIScene extends Phaser.Scene {
       return;
     }
     
-    // Deduct tokens
-    this.tokenBalance -= this.predictionAmount;
-    this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
+    // Store the gladiator ID locally in case the selection changes during the async operation
+    const gladiatorId = this.selectedGladiator?.id;
     
-    // Update prediction state
-    this.predictionMade = true;
-    
-    // Update UI
-    this.updatePredictionUI();
-    
-    // Notify arena scene
-    this.arenaScene.events.emit('predictionMade', {
-      gladiatorId: this.selectedGladiator.id,
-      amount: this.predictionAmount
+    // Spend tokens using zoraClient
+    zoraClient.spend(this.walletAddress, this.predictionAmount).then(result => {
+      if (result.success && result.data) {
+        // Update token balance
+        this.tokenBalance = result.data.newBalance;
+        this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
+        
+        // Update prediction state
+        this.predictionMade = true;
+        
+        // Update UI
+        this.updatePredictionUI();
+        
+        // Notify arena scene
+        this.arenaScene.events.emit('predictionMade', {
+          gladiatorId,
+          amount: this.predictionAmount,
+          walletAddress: this.walletAddress
+        });
+        
+        // Show prediction confirmation
+        this.showPredictionConfirmation();
+      } else {
+        // Show error message
+        this.showErrorMessage('Failed to make prediction: ' + result.message);
+      }
     });
-    
-    // Show prediction confirmation
-    this.showPredictionConfirmation();
   }
 
   private showPredictionConfirmation(): void {
@@ -413,11 +432,21 @@ export class UIScene extends Phaser.Scene {
       if (isWinner) {
         // Award tokens for correct prediction (double the prediction)
         const winnings = this.predictionAmount * 2;
-        this.tokenBalance += winnings;
-        this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
         
-        // Show winning message
-        this.showPredictionResult(true, winnings);
+        // Distribute winnings using zoraClient
+        zoraClient.distributeRewards([this.walletAddress], winnings).then(results => {
+          if (results.length > 0 && results[0].success) {
+            // Update token balance
+            this.tokenBalance = results[0].data.newBalance;
+            this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
+            
+            // Show winning message
+            this.showPredictionResult(true, winnings);
+          } else {
+            console.error('Failed to distribute winnings:', results);
+            this.showErrorMessage('Failed to receive winnings');
+          }
+        });
       } else {
         // Show losing message
         this.showPredictionResult(false, 0);
@@ -553,5 +582,35 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5);
     
     statsContent.add([healthBarBg, healthBar, healthText]);
+  }
+
+  // Add a method to show error messages
+  private showErrorMessage(message: string): void {
+    const errorText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      message,
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#ff4444',
+        backgroundColor: '#000000',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5).setDepth(100).setAlpha(0);
+    
+    // Fade in and out animation
+    this.tweens.add({
+      targets: errorText,
+      alpha: { from: 0, to: 1 },
+      y: GAME_HEIGHT / 2 - 20,
+      duration: 500,
+      ease: 'Power2',
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => {
+        errorText.destroy();
+      }
+    });
   }
 } 

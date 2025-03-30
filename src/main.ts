@@ -3,6 +3,8 @@ import './style.css';
 import { BootScene } from './scenes/BootScene';
 import { ArenaScene } from './scenes/ArenaScene';
 import { UIScene } from './scenes/UIScene';
+import { testZoraClient } from './utils/zoraClient.test';
+import { zoraClient } from './utils/zoraClient';
 
 // Game configuration
 const config: Phaser.Types.Core.GameConfig = {
@@ -22,4 +24,8 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 // Initialize the game
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// Expose test functions to global scope for console testing
+(window as any).testZoraClient = testZoraClient;
+(window as any).zoraClient = zoraClient;

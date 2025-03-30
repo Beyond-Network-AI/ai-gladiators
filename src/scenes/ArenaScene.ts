@@ -33,6 +33,13 @@ export class ArenaScene extends Phaser.Scene {
   // Sprite selection for this round
   private currentRoundSprites: string[] = [];
   
+  // Add a new property to track predictions
+  private predictions: { 
+    walletAddress: string;
+    gladiatorId: number;
+    amount: number;
+  }[] = [];
+  
   constructor() {
     super({ key: 'ArenaScene' });
     this.spawnZones = [];
@@ -122,6 +129,9 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.scene.isActive('UIScene')) {
       this.scene.launch('UIScene');
     }
+    
+    // Listen for prediction events from UI scene
+    this.events.on('predictionMade', this.handlePrediction, this);
     
     // Spawn gladiators
     this.spawnGladiators();
@@ -860,6 +870,9 @@ export class ArenaScene extends Phaser.Scene {
       this.scene.stop('ArenaScene');
       this.scene.start('ArenaScene');
     });
+    
+    // Clear predictions for the next match
+    this.predictions = [];
   }
   
   // Called when scene shuts down
@@ -995,5 +1008,60 @@ export class ArenaScene extends Phaser.Scene {
     
     // Apply hazard effect to the gladiator
     typedHazard.applyEffect(typedGladiator);
+  }
+
+  // Handle prediction events from UI scene
+  private handlePrediction(prediction: { walletAddress: string; gladiatorId: number; amount: number }): void {
+    console.log('Prediction received:', prediction);
+    
+    // Add prediction to the list
+    this.predictions.push(prediction);
+    
+    // Optionally, show some visual feedback like a banner or effect on the predicted gladiator
+    const predictedGladiator = this.gladiators.find(g => g.id === prediction.gladiatorId);
+    if (predictedGladiator) {
+      // Add a golden glow effect to the predicted gladiator
+      const glow = this.add.graphics();
+      glow.lineStyle(4, 0xFFD700, 0.5);
+      glow.strokeCircle(predictedGladiator.x, predictedGladiator.y, 40);
+      
+      // Animate the glow
+      this.tweens.add({
+        targets: glow,
+        alpha: { from: 0.8, to: 0.2 },
+        duration: 1000,
+        yoyo: true,
+        repeat: 2,
+        onComplete: () => {
+          glow.destroy();
+        }
+      });
+      
+      // Show prediction amount
+      const predictionText = this.add.text(
+        predictedGladiator.x,
+        predictedGladiator.y - 60,
+        `Prediction: ${prediction.amount} $GLAD`,
+        {
+          fontFamily: 'Arial',
+          fontSize: '14px',
+          color: '#FFD700',
+          stroke: '#000000',
+          strokeThickness: 3
+        }
+      ).setOrigin(0.5);
+      
+      // Fade out the text
+      this.tweens.add({
+        targets: predictionText,
+        alpha: { from: 1, to: 0 },
+        y: predictionText.y - 20,
+        duration: 2000,
+        ease: 'Power2',
+        onComplete: () => {
+          predictionText.destroy();
+        }
+      });
+    }
   }
 } 
