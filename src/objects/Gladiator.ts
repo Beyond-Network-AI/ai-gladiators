@@ -477,7 +477,19 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   
   // Take damage and check for knockout
   public takeDamage(amount: number): void {
-    this.stats.health! -= amount;
+    // Calculate damage reduction based on defense
+    // Higher defense means more damage reduction (up to 80% reduction with defense of 10)
+    const damageReduction = Math.min(0.8, this.stats.defense / 12);
+    const reducedDamage = amount * (1 - damageReduction);
+    
+    // Apply damage
+    this.stats.health! -= reducedDamage;
+    
+    // Log damage reduction in debug mode
+    // @ts-ignore - accessing property that may not be directly on the Scene type
+    if (this.scene.debugMode) {
+      console.log(`Gladiator took ${reducedDamage.toFixed(1)} damage (reduced from ${amount} by ${(damageReduction * 100).toFixed(1)}%)`);
+    }
     
     // Update health bar
     this.updateHealthBar();

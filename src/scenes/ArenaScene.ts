@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT, GLADIATOR_SPRITES, FALLBACK_SPRITE } from '../utils/constants';
 import { Gladiator } from '../objects/Gladiator';
+import { PowerUp } from '../objects/PowerUp';
+import { ArenaHazard } from '../objects/ArenaHazard';
+import { PowerUpType } from '../types/PowerUpType';
+import { HazardDirection } from '../types/HazardType';
 import { DEFAULT_GAME_SETTINGS } from '../types/GameConfig';
 
 export class ArenaScene extends Phaser.Scene {
@@ -10,6 +14,14 @@ export class ArenaScene extends Phaser.Scene {
   // Gladiator management
   private gladiators: Gladiator[];
   private gladiatorCount: number = 4; // Number of gladiators to spawn
+  
+  // Power-up management
+  private powerUps: PowerUp[] = [];
+  private powerUpSpawnTimer: Phaser.Time.TimerEvent | null = null;
+  
+  // Hazard management
+  private hazards: ArenaHazard[] = [];
+  private hazardSpawnTimer: Phaser.Time.TimerEvent | null = null;
   
   // Debug settings
   private debugMode: boolean;
@@ -36,6 +48,9 @@ export class ArenaScene extends Phaser.Scene {
     
     // Load fallback sprite
     this.load.image('gladiator_fallback', FALLBACK_SPRITE);
+    
+    // Load particle for effects
+    this.load.image('particle', 'https://labs.phaser.io/assets/particles/white.png');
   }
 
   create(): void {
@@ -48,6 +63,8 @@ export class ArenaScene extends Phaser.Scene {
     // Reset arrays
     this.spawnZones = [];
     this.gladiators = [];
+    this.powerUps = [];
+    this.hazards = [];
     
     // Select random sprites for this round
     this.selectRandomSpritesForRound();
@@ -98,11 +115,35 @@ export class ArenaScene extends Phaser.Scene {
     // Spawn gladiators
     this.spawnGladiators();
     
+    // Set up power-up spawning timer
+    this.setupPowerUpSpawner();
+    
+    // Set up hazard spawning timer
+    this.setupHazardSpawner();
+    
     // Set up collision between gladiators
     this.physics.add.collider(
       this.gladiators,
       this.gladiators,
       this.handleGladiatorCollision,
+      undefined,
+      this
+    );
+    
+    // Set up collision between gladiators and power-ups
+    this.physics.add.overlap(
+      this.gladiators,
+      this.powerUps,
+      this.handlePowerUpCollision,
+      undefined,
+      this
+    );
+    
+    // Set up collision between gladiators and hazards
+    this.physics.add.overlap(
+      this.gladiators,
+      this.hazards,
+      this.handleHazardCollision,
       undefined,
       this
     );
@@ -128,8 +169,39 @@ export class ArenaScene extends Phaser.Scene {
       this.gladiators = [];
     }
     
+    // Clean up power-ups
+    if (this.powerUps && this.powerUps.length > 0) {
+      for (const powerUp of this.powerUps) {
+        if (powerUp && powerUp.active) {
+          powerUp.destroyPowerUp();
+        }
+      }
+      this.powerUps = [];
+    }
+    
+    // Clean up hazards
+    if (this.hazards && this.hazards.length > 0) {
+      for (const hazard of this.hazards) {
+        if (hazard && hazard.active) {
+          hazard.destroyHazard();
+        }
+      }
+      this.hazards = [];
+    }
+    
     // Stop all timers to prevent duplicate events
     this.time.removeAllEvents();
+    
+    // Clear power-up and hazard spawn timers
+    if (this.powerUpSpawnTimer) {
+      this.powerUpSpawnTimer.remove();
+      this.powerUpSpawnTimer = null;
+    }
+    
+    if (this.hazardSpawnTimer) {
+      this.hazardSpawnTimer.remove();
+      this.hazardSpawnTimer = null;
+    }
     
     // Destroy all game objects by type
     this.children.getAll().forEach(child => {
@@ -140,7 +212,8 @@ export class ArenaScene extends Phaser.Scene {
       if (child instanceof Phaser.GameObjects.Text || 
           child instanceof Phaser.GameObjects.Graphics ||
           child instanceof Phaser.GameObjects.Rectangle ||
-          child instanceof Phaser.GameObjects.Sprite) {
+          child instanceof Phaser.GameObjects.Sprite ||
+          child instanceof Phaser.GameObjects.Particles.ParticleEmitter) {
         child.destroy();
       }
     });
@@ -159,6 +232,20 @@ export class ArenaScene extends Phaser.Scene {
     for (const gladiator of this.gladiators) {
       if (gladiator.active) {
         gladiator.update();
+      }
+    }
+    
+    // Update each power-up
+    for (const powerUp of this.powerUps) {
+      if (powerUp.active) {
+        powerUp.update();
+      }
+    }
+    
+    // Update each hazard
+    for (const hazard of this.hazards) {
+      if (hazard.active) {
+        hazard.update();
       }
     }
     
@@ -300,33 +387,55 @@ export class ArenaScene extends Phaser.Scene {
   }
   
   private updateGladiatorTargets(): void {
-    // For each active gladiator, find closest target
+    // For each gladiator, find the nearest other gladiator as target
     for (const gladiator of this.gladiators) {
       if (!gladiator.active) continue;
       
-      // Find closest gladiator
-      let closestDistance = Number.MAX_VALUE;
-      let closestGladiator: Gladiator | null = null;
+      let nearestGladiator: Gladiator | null = null;
+      let nearestDistance = Number.MAX_VALUE;
       
-      for (const target of this.gladiators) {
-        // Skip self or inactive targets
-        if (target === gladiator || !target.active) continue;
+      // Find the nearest other gladiator
+      for (const otherGladiator of this.gladiators) {
+        if (otherGladiator === gladiator || !otherGladiator.active) continue;
         
-        // Calculate distance
         const distance = Phaser.Math.Distance.Between(
           gladiator.x, gladiator.y,
-          target.x, target.y
+          otherGladiator.x, otherGladiator.y
         );
         
-        // Update closest if this one is closer
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestGladiator = target;
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestGladiator = otherGladiator;
         }
       }
       
-      // Set target (may be null if no active targets)
-      gladiator.setTarget(closestGladiator);
+      // Set the target
+      gladiator.setTarget(nearestGladiator);
+      
+      // Find the nearest power-up
+      let nearestPowerUp: PowerUp | null = null;
+      nearestDistance = Number.MAX_VALUE;
+      
+      for (const powerUp of this.powerUps) {
+        if (!powerUp.active) continue;
+        
+        const distance = Phaser.Math.Distance.Between(
+          gladiator.x, gladiator.y,
+          powerUp.x, powerUp.y
+        );
+        
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestPowerUp = powerUp;
+        }
+      }
+      
+      // If a power-up is within range (300 pixels), set it as a target
+      if (nearestPowerUp && nearestDistance < 300) {
+        gladiator.setPowerUpTarget(nearestPowerUp);
+      } else {
+        gladiator.setPowerUpTarget(null);
+      }
     }
   }
   
@@ -497,6 +606,43 @@ export class ArenaScene extends Phaser.Scene {
       ).setOrigin(0.5, 0.5)
        .setDepth(10);
     }
+    
+    // We're also adding some code to display stats about power-ups and hazards
+    let powerUpText = '';
+    if (this.powerUps.length > 0) {
+      powerUpText = `Power-ups still active: ${this.powerUps.length}`;
+    } else {
+      powerUpText = 'All power-ups collected';
+    }
+    
+    this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 160,
+      powerUpText,
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: COLORS.secondaryText
+      }
+    ).setOrigin(0.5, 0.5);
+    
+    let hazardText = '';
+    if (this.hazards.length > 0) {
+      hazardText = `Hazards still active: ${this.hazards.length}`;
+    } else {
+      hazardText = 'No hazards remaining';
+    }
+    
+    this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 130,
+      hazardText,
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: COLORS.secondaryText
+      }
+    ).setOrigin(0.5, 0.5);
   }
   
   // Create ribbon-like celebration effect
@@ -664,5 +810,128 @@ export class ArenaScene extends Phaser.Scene {
     
     // Reset the match ending flag
     this.data.set('matchEnding', false);
+  }
+
+  // New methods for power-ups and hazards
+  
+  // Set up power-up spawning timer
+  private setupPowerUpSpawner(): void {
+    // Spawn first power-up after 5 seconds, then every 8-15 seconds
+    this.powerUpSpawnTimer = this.time.addEvent({
+      delay: 5000,
+      callback: this.spawnRandomPowerUp,
+      callbackScope: this,
+      loop: false
+    });
+  }
+  
+  // Spawn a random power-up in the arena
+  private spawnRandomPowerUp(): void {
+    // Don't spawn more power-ups if match is ending
+    if (this.data.get('matchEnding')) return;
+    
+    // Calculate a random position within the arena (avoid edges)
+    const margin = 100; // Margin from edges
+    const x = margin + Math.random() * (GAME_WIDTH - margin * 2);
+    const y = margin + Math.random() * (GAME_HEIGHT - margin * 2);
+    
+    // Choose a random power-up type
+    const powerUpTypes = [
+      PowerUpType.SHIELD,
+      PowerUpType.TRAP,
+      PowerUpType.CHAOS
+    ];
+    
+    const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+    
+    // Create the power-up
+    const powerUp = new PowerUp(this, x, y, randomType);
+    
+    // Add to the power-ups array
+    this.powerUps.push(powerUp);
+    
+    console.log(`Spawned ${randomType} power-up at (${x}, ${y})`);
+    
+    // Schedule next power-up spawn
+    const nextSpawnTime = 8000 + Math.random() * 7000; // 8-15 seconds
+    this.powerUpSpawnTimer = this.time.addEvent({
+      delay: nextSpawnTime,
+      callback: this.spawnRandomPowerUp,
+      callbackScope: this,
+      loop: false
+    });
+  }
+  
+  // Set up hazard spawning timer
+  private setupHazardSpawner(): void {
+    // Spawn first hazard after 10 seconds, then every 6-12 seconds
+    this.hazardSpawnTimer = this.time.addEvent({
+      delay: 10000,
+      callback: this.spawnRandomHazard,
+      callbackScope: this,
+      loop: false
+    });
+  }
+  
+  // Spawn a random hazard in the arena
+  private spawnRandomHazard(): void {
+    // Don't spawn more hazards if match is ending
+    if (this.data.get('matchEnding')) return;
+    
+    // Choose a random hazard type (spike wall or fireball)
+    const hazardType = Math.random() > 0.5 ? 'spikeWall' : 'fireball';
+    let hazard;
+    
+    if (hazardType === 'spikeWall') {
+      // For spike wall, choose a random direction
+      const direction = Math.random() > 0.5 ? HazardDirection.HORIZONTAL : HazardDirection.VERTICAL;
+      hazard = ArenaHazard.createSpikeWall(this, direction);
+    } else {
+      // For fireball, just create it
+      hazard = ArenaHazard.createFireball(this);
+    }
+    
+    // Add to the hazards array
+    this.hazards.push(hazard);
+    
+    console.log(`Spawned ${hazardType} hazard`);
+    
+    // Schedule next hazard spawn
+    const nextSpawnTime = 6000 + Math.random() * 6000; // 6-12 seconds
+    this.hazardSpawnTimer = this.time.addEvent({
+      delay: nextSpawnTime,
+      callback: this.spawnRandomHazard,
+      callbackScope: this,
+      loop: false
+    });
+  }
+  
+  // Handle collision between gladiator and power-up
+  private handlePowerUpCollision(gladiator: any, powerUp: any): void {
+    // Make sure both objects are valid
+    if (!gladiator.active || !powerUp.active) return;
+    
+    // Cast to correct types
+    const typedGladiator = gladiator as Gladiator;
+    const typedPowerUp = powerUp as PowerUp;
+    
+    // Apply power-up effect to the gladiator
+    typedPowerUp.applyEffect(typedGladiator);
+    
+    // Remove power-up from array (it's already destroyed in applyEffect)
+    this.powerUps = this.powerUps.filter(p => p !== typedPowerUp);
+  }
+  
+  // Handle collision between gladiator and hazard
+  private handleHazardCollision(gladiator: any, hazard: any): void {
+    // Make sure both objects are valid
+    if (!gladiator.active || !hazard.active) return;
+    
+    // Cast to correct types
+    const typedGladiator = gladiator as Gladiator;
+    const typedHazard = hazard as ArenaHazard;
+    
+    // Apply hazard effect to the gladiator
+    typedHazard.applyEffect(typedGladiator);
   }
 } 

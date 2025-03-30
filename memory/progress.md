@@ -63,4 +63,33 @@
 
 ### Next Steps:
 - Step 3.1 - Create PowerUp class
-- Step 3.2 - Add Arena Hazards 
+- Step 3.2 - Add Arena Hazards
+
+## Step 3 - Power-Ups & Hazards (Completed)
+
+### Done:
+- Created PowerUpType.ts with enum for different power-up types (shield, trap, chaos)
+- Created PowerUp.ts class with visual effects, behaviors, and type-specific effects
+- Created HazardType.ts with enum for hazard types (spike wall, fireball)
+- Created ArenaHazard.ts class with movements, effects, and collision behaviors
+- Updated ArenaScene to spawn power-ups randomly throughout the match
+- Added hazard spawning system with timed spawning of spike walls and fireballs
+- Implemented collision handling between gladiators and power-ups/hazards
+- Added visual effects for power-ups and hazards with particles
+- Modified gladiator targeting to prioritize nearby power-ups
+
+### Updates:
+- Removed speed power-up type to focus on more impactful power-ups (shield, trap, chaos)
+- Fixed defense stat implementation to properly reduce damage with shields
+
+### Test Results:
+- ✅ Power-ups appear during the match and are picked up by Gladiators
+- ✅ Power-ups apply different effects based on their type (shield, trap, chaos)
+- ✅ Hazards function correctly with spike walls moving across the arena and fireballs falling
+- ✅ Gladiators can be damaged by environmental hazards
+- ✅ Gladiators intelligently seek power-ups when nearby
+- ✅ Shield power-up properly reduces damage taken by gladiators
+
+### Next Steps:
+- Step 4.1 - Create UIScene with match timer, gladiator stats, and prediction panel
+- Step 4.2 - Add "Connect Wallet" functionality with zoraClient 
