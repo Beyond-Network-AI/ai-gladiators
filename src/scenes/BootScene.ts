@@ -101,8 +101,32 @@ export class BootScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
     
-    // Transition to ArenaScene after 2 seconds
-    this.time.delayedCall(2000, () => {
+    // Add a loading animation
+    const loadingDots = this.add.text(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY + 130,
+      '',
+      {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#ffffff'
+      }
+    ).setOrigin(0.5);
+    
+    // Animate the loading dots
+    let dots = '';
+    const loadingAnim = this.time.addEvent({
+      delay: 300,
+      callback: () => {
+        dots = dots.length >= 3 ? '' : dots + '.';
+        loadingDots.setText(dots);
+      },
+      loop: true
+    });
+    
+    // Transition to ArenaScene faster (after 1 second instead of 2)
+    this.time.delayedCall(1000, () => {
+      loadingAnim.remove();
       this.scene.start('ArenaScene');
     });
     
