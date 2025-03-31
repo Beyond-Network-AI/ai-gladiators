@@ -62,8 +62,8 @@ export class BootScene extends Phaser.Scene {
     // Create a particle texture
     this.createParticleTexture();
     
-    // Set a colored background
-    this.cameras.main.setBackgroundColor('#4488AA');
+    // Set a black background
+    this.cameras.main.setBackgroundColor('#000000');
     
     // Display some text
     this.add.text(
