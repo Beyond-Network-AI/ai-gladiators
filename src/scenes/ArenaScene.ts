@@ -110,7 +110,164 @@ export class ArenaScene extends Phaser.Scene {
     this.selectRandomSpritesForRound();
     
     // Set arena background
-    this.cameras.main.setBackgroundColor(COLORS.background);
+    // this.cameras.main.setBackgroundColor(COLORS.background);
+    
+    // Create a more interesting arena background with grid and pattern
+    const background = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'background')
+      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+      .setAlpha(0.7);
+    
+    // Add a secondary pulsing backdrop for depth
+    const backdropGlow = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'background')
+      .setDisplaySize(GAME_WIDTH + 50, GAME_HEIGHT + 50)
+      .setTint(0x2233aa)
+      .setAlpha(0.3);
+    
+    // Pulse the backdrop glow
+    this.tweens.add({
+      targets: backdropGlow,
+      alpha: { from: 0.3, to: 0.5 },
+      scale: { from: 1.05, to: 1.1 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+    
+    // Create a repeating pattern effect with the background texture
+    const bgPattern = this.add.tileSprite(
+      GAME_WIDTH / 2, 
+      GAME_HEIGHT / 2, 
+      GAME_WIDTH, 
+      GAME_HEIGHT, 
+      'background'
+    ).setAlpha(0.4);
+    
+    // Add subtle animation to the background pattern
+    this.tweens.add({
+      targets: bgPattern,
+      tilePositionX: { from: 0, to: 256 },
+      tilePositionY: { from: 0, to: 256 },
+      ease: 'Linear',
+      duration: 60000, // 1 minute for a full cycle
+      repeat: -1
+    });
+    
+    // Add corner decorations
+    this.createCornerDecorations();
+    
+    // Add a grid overlay for the arena floor with more detailed design
+    const gridSize = 64;
+    const graphics = this.add.graphics();
+    graphics.lineStyle(1, 0x3333cc, 0.3);
+    
+    // Draw horizontal grid lines
+    for (let y = 0; y <= GAME_HEIGHT; y += gridSize) {
+      graphics.moveTo(0, y);
+      graphics.lineTo(GAME_WIDTH, y);
+    }
+    
+    // Draw vertical grid lines
+    for (let x = 0; x <= GAME_WIDTH; x += gridSize) {
+      graphics.moveTo(x, 0);
+      graphics.lineTo(x, GAME_HEIGHT);
+    }
+    
+    // Add circular markers at grid intersections
+    graphics.fillStyle(0x4444ff, 0.2);
+    for (let x = gridSize; x < GAME_WIDTH; x += gridSize) {
+      for (let y = gridSize; y < GAME_HEIGHT; y += gridSize) {
+        // Add small dots at grid intersections
+        graphics.fillCircle(x, y, 2);
+      }
+    }
+    
+    // Create special center arena marker
+    this.createCenterArenaMarker();
+    
+    // Draw arena border with a glowing effect
+    const borderGraphics = this.add.graphics();
+    borderGraphics.lineStyle(4, 0xff5555, 0.8);
+    borderGraphics.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
+    
+    // Add secondary inner border
+    borderGraphics.lineStyle(2, 0x00ffff, 0.4);
+    borderGraphics.strokeRect(20, 20, GAME_WIDTH - 40, GAME_HEIGHT - 40);
+    
+    // Add decorative corner elements
+    const cornerSize = 40;
+    
+    // Top-left corner
+    borderGraphics.lineStyle(4, 0xffaa00, 1);
+    borderGraphics.moveTo(5, 40);
+    borderGraphics.lineTo(5, 5);
+    borderGraphics.lineTo(40, 5);
+    
+    // Top-right corner
+    borderGraphics.moveTo(GAME_WIDTH - 5, 40);
+    borderGraphics.lineTo(GAME_WIDTH - 5, 5);
+    borderGraphics.lineTo(GAME_WIDTH - 40, 5);
+    
+    // Bottom-left corner
+    borderGraphics.moveTo(5, GAME_HEIGHT - 40);
+    borderGraphics.lineTo(5, GAME_HEIGHT - 5);
+    borderGraphics.lineTo(40, GAME_HEIGHT - 5);
+    
+    // Bottom-right corner
+    borderGraphics.moveTo(GAME_WIDTH - 5, GAME_HEIGHT - 40);
+    borderGraphics.lineTo(GAME_WIDTH - 5, GAME_HEIGHT - 5);
+    borderGraphics.lineTo(GAME_WIDTH - 40, GAME_HEIGHT - 5);
+    
+    // Add extra corner decorations
+    borderGraphics.lineStyle(3, 0xff9900, 0.8);
+    
+    // Top-left decorative elements
+    borderGraphics.beginPath();
+    borderGraphics.arc(5, 5, 30, 0, Math.PI/2);
+    borderGraphics.strokePath();
+    
+    // Top-right decorative elements
+    borderGraphics.beginPath();
+    borderGraphics.arc(GAME_WIDTH - 5, 5, 30, Math.PI/2, Math.PI);
+    borderGraphics.strokePath();
+    
+    // Bottom-left decorative elements
+    borderGraphics.beginPath();
+    borderGraphics.arc(5, GAME_HEIGHT - 5, 30, Math.PI*1.5, Math.PI*2);
+    borderGraphics.strokePath();
+    
+    // Bottom-right decorative elements
+    borderGraphics.beginPath();
+    borderGraphics.arc(GAME_WIDTH - 5, GAME_HEIGHT - 5, 30, Math.PI, Math.PI*1.5);
+    borderGraphics.strokePath();
+    
+    // Add a pulsing glow effect to the border
+    this.tweens.add({
+      targets: borderGraphics,
+      alpha: { from: 0.7, to: 1 },
+      yoyo: true,
+      repeat: -1,
+      duration: 2000,
+      ease: 'Sine.easeInOut'
+    });
+    
+    // Add background particles for atmosphere
+    const particles = this.add.particles(0, 0, 'particle', {
+      x: { min: 0, max: GAME_WIDTH },
+      y: { min: 0, max: GAME_HEIGHT },
+      lifespan: 8000,
+      speedY: { min: -10, max: 10 },
+      speedX: { min: -10, max: 10 },
+      scale: { start: 0.2, end: 0 },
+      quantity: 1,
+      frequency: 500,
+      blendMode: 'ADD',
+      tint: [0x4455ff, 0x22ffaa, 0xff44aa],
+      alpha: { start: 0.2, end: 0 }
+    });
+    
+    // Add energy field particles around the border
+    this.createEnergyFieldEffect();
     
     // Create arena title with match number
     this.add.text(
@@ -1282,5 +1439,179 @@ export class ArenaScene extends Phaser.Scene {
         }
       });
     }
+  }
+
+  // Create decorative elements in the arena corners
+  private createCornerDecorations(): void {
+    // Top-left corner decoration
+    const tlCorner = this.add.graphics();
+    tlCorner.fillStyle(0x3377ff, 0.3);
+    tlCorner.fillCircle(50, 50, 80);
+    tlCorner.lineStyle(2, 0x66aaff, 0.6);
+    tlCorner.strokeCircle(50, 50, 80);
+    tlCorner.strokeCircle(50, 50, 65);
+    tlCorner.strokeCircle(50, 50, 50);
+    
+    // Top-right corner decoration
+    const trCorner = this.add.graphics();
+    trCorner.fillStyle(0xff7733, 0.3);
+    trCorner.fillCircle(GAME_WIDTH - 50, 50, 80);
+    trCorner.lineStyle(2, 0xffaa66, 0.6);
+    trCorner.strokeCircle(GAME_WIDTH - 50, 50, 80);
+    trCorner.strokeCircle(GAME_WIDTH - 50, 50, 65);
+    trCorner.strokeCircle(GAME_WIDTH - 50, 50, 50);
+    
+    // Bottom-left corner decoration
+    const blCorner = this.add.graphics();
+    blCorner.fillStyle(0x33ff77, 0.3);
+    blCorner.fillCircle(50, GAME_HEIGHT - 50, 80);
+    blCorner.lineStyle(2, 0x66ffaa, 0.6);
+    blCorner.strokeCircle(50, GAME_HEIGHT - 50, 80);
+    blCorner.strokeCircle(50, GAME_HEIGHT - 50, 65);
+    blCorner.strokeCircle(50, GAME_HEIGHT - 50, 50);
+    
+    // Bottom-right corner decoration
+    const brCorner = this.add.graphics();
+    brCorner.fillStyle(0xff33aa, 0.3);
+    brCorner.fillCircle(GAME_WIDTH - 50, GAME_HEIGHT - 50, 80);
+    brCorner.lineStyle(2, 0xff66cc, 0.6);
+    brCorner.strokeCircle(GAME_WIDTH - 50, GAME_HEIGHT - 50, 80);
+    brCorner.strokeCircle(GAME_WIDTH - 50, GAME_HEIGHT - 50, 65);
+    brCorner.strokeCircle(GAME_WIDTH - 50, GAME_HEIGHT - 50, 50);
+  }
+  
+  // Create special center marker for the arena
+  private createCenterArenaMarker(): void {
+    const centerX = GAME_WIDTH / 2;
+    const centerY = GAME_HEIGHT / 2;
+    
+    // Create center marker
+    const centerMarker = this.add.graphics();
+    
+    // Outer circle
+    centerMarker.lineStyle(2, 0xff9900, 0.6);
+    centerMarker.strokeCircle(centerX, centerY, 100);
+    
+    // Inner circles
+    centerMarker.lineStyle(1, 0xffaa00, 0.5);
+    centerMarker.strokeCircle(centerX, centerY, 80);
+    centerMarker.strokeCircle(centerX, centerY, 60);
+    
+    // Center dot
+    centerMarker.fillStyle(0xffaa00, 0.4);
+    centerMarker.fillCircle(centerX, centerY, 10);
+    
+    // Cross lines through center
+    centerMarker.lineStyle(1, 0xffaa00, 0.4);
+    // Horizontal line
+    centerMarker.beginPath();
+    centerMarker.moveTo(centerX - 120, centerY);
+    centerMarker.lineTo(centerX + 120, centerY);
+    centerMarker.strokePath();
+    
+    // Vertical line
+    centerMarker.beginPath();
+    centerMarker.moveTo(centerX, centerY - 120);
+    centerMarker.lineTo(centerX, centerY + 120);
+    centerMarker.strokePath();
+    
+    // Diagonal lines
+    centerMarker.lineStyle(1, 0xffaa00, 0.3);
+    // Diagonal line 1
+    centerMarker.beginPath();
+    centerMarker.moveTo(centerX - 85, centerY - 85);
+    centerMarker.lineTo(centerX + 85, centerY + 85);
+    centerMarker.strokePath();
+    
+    // Diagonal line 2
+    centerMarker.beginPath();
+    centerMarker.moveTo(centerX + 85, centerY - 85);
+    centerMarker.lineTo(centerX - 85, centerY + 85);
+    centerMarker.strokePath();
+    
+    // Create pulsing animation for the center
+    this.tweens.add({
+      targets: centerMarker,
+      alpha: { from: 0.8, to: 0.4 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+  
+  // Create energy field particles around the arena border
+  private createEnergyFieldEffect(): void {
+    // Instead of using emitters, create individual particle effects at fixed intervals
+    
+    // Create a timer to spawn particles along the border at regular intervals
+    this.time.addEvent({
+      delay: 300,
+      callback: () => {
+        this.createBorderParticle();
+      },
+      callbackScope: this,
+      loop: true
+    });
+  }
+  
+  // Create individual border particles
+  private createBorderParticle(): void {
+    // Randomly select which border to create the particle on
+    const border = Math.floor(Math.random() * 4); // 0-3 (top, right, bottom, left)
+    
+    let x = 0;
+    let y = 0;
+    let vx = 0;
+    let vy = 0;
+    
+    // Position and velocity based on selected border
+    switch (border) {
+      case 0: // Top
+        x = Phaser.Math.Between(20, GAME_WIDTH - 20);
+        y = 10;
+        vx = Phaser.Math.Between(-20, 20);
+        vy = Phaser.Math.Between(5, 15);
+        break;
+      case 1: // Right
+        x = GAME_WIDTH - 10;
+        y = Phaser.Math.Between(20, GAME_HEIGHT - 20);
+        vx = Phaser.Math.Between(-15, -5);
+        vy = Phaser.Math.Between(-20, 20);
+        break;
+      case 2: // Bottom
+        x = Phaser.Math.Between(20, GAME_WIDTH - 20);
+        y = GAME_HEIGHT - 10;
+        vx = Phaser.Math.Between(-20, 20);
+        vy = Phaser.Math.Between(-15, -5);
+        break;
+      case 3: // Left
+        x = 10;
+        y = Phaser.Math.Between(20, GAME_HEIGHT - 20);
+        vx = Phaser.Math.Between(5, 15);
+        vy = Phaser.Math.Between(-20, 20);
+        break;
+    }
+    
+    // Create the particle
+    const particle = this.add.image(x, y, 'particle')
+      .setScale(0.2)
+      .setAlpha(0.6)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(0x66ffff);
+    
+    // Animate the particle
+    this.tweens.add({
+      targets: particle,
+      x: x + vx * 10,
+      y: y + vy * 10,
+      scale: 0,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Linear',
+      onComplete: () => {
+        particle.destroy();
+      }
+    });
   }
 } 

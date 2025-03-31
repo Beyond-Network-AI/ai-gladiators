@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { IGladiatorStats } from '../types/IGladiatorStats';
 import { GLADIATOR_STAT_RANGES } from '../utils/constants';
+import { GLADIATOR_SPRITES, getParticleColorFromSprite } from '../utils/AssetManager';
 
 // Define Gladiator states for the Finite State Machine
 export enum GladiatorState {
@@ -33,9 +34,12 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   private stateText: Phaser.GameObjects.Text | null = null;
   private healthBar: Phaser.GameObjects.Graphics | null = null;
   
+  // Particle emitter for visual effects
+  private particleEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
-    // Use fallback texture if the specified one isn't available
-    const availableTexture = scene.textures.exists(texture) ? texture : 'gladiator_fallback';
+    // Use a sprite from our asset manager if the specified one isn't available
+    const availableTexture = scene.textures.exists(texture) ? texture : GLADIATOR_SPRITES.RED;
     
     super(scene, x, y, availableTexture);
     
@@ -58,7 +62,7 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     this.stats.health = this.stats.maxHealth;
     
     // Set scale to make gladiator more visible
-    this.setScale(1.0);
+    this.setScale(1.5);
     
     // Add debug outline to see sprite boundaries
     // @ts-ignore - accessing property
@@ -90,7 +94,35 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
     // Create health bar
     this.createHealthBar();
     
+    // Create particle emitter for visual effects
+    this.createParticleEmitter();
+    
     console.log(`Gladiator created with texture: ${availableTexture}`);
+  }
+  
+  // Create particle emitter for visual effects
+  private createParticleEmitter(): void {
+    const particleColor = getParticleColorFromSprite(this.texture.key);
+    
+    this.particleEmitter = this.scene.add.particles(0, 0, 'particle', {
+      speed: { min: 50, max: 100 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: 500,
+      blendMode: 'ADD',
+      tint: particleColor
+    });
+    
+    // Set emitter to not emit automatically
+    this.particleEmitter.stop();
+  }
+  
+  // Show particles effect (used for attacks, damage, etc.)
+  private showParticleEffect(x: number, y: number, count: number = 10): void {
+    if (!this.particleEmitter) return;
+    
+    this.particleEmitter.setPosition(x, y);
+    this.particleEmitter.explode(count);
   }
   
   // Generate random stats based on predefined ranges
@@ -376,128 +408,69 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   
   // Attack another gladiator
   public attack(target: Gladiator): void {
-    if (!target) return;
-    
-    // Show attack animation - flash the sprite
-    this.setTint(0xff0000);
-    
-    // Reset tint after a short delay
-    this.scene.time.delayedCall(200, () => {
-      if (this.active) {
-        this.clearTint();
-      }
-    });
-    
-    // Calculate damage based on strength, defense, and luck
+    // Calculate base damage based on strength
     const baseDamage = this.stats.strength;
-    const defense = target.stats.defense;
     
-    // Reduced dodge chance for more reliable damage
-    if (Math.random() < target.stats.luck / 2) {
-      console.log('Attack dodged!');
-      
-      // Only show dodge text 10% of the time
-      if (Math.random() < 0.1) {
-        // Create a dodge text effect
-        const dodgeText = this.scene.add.text(
-          target.x, 
-          target.y - 20, 
-          'DODGE!', 
-          { 
-            fontSize: '12px', 
-            color: '#ffff00',
-            backgroundColor: '#000000' 
-          }
-        ).setOrigin(0.5)
-          .setDepth(1);
-          
-        // Remove the text quickly
-        this.scene.time.delayedCall(300, () => {
-          dodgeText.destroy();
-        });
-      }
-      
-      return;
-    }
+    // Apply critical hit based on luck
+    const isCritical = Math.random() < this.stats.luck;
+    const damageMultiplier = isCritical ? 1.5 : 1.0;
     
-    // Check for critical hit (based on attacker's luck)
-    let criticalMultiplier = 1;
-    if (Math.random() < this.stats.luck * 3) {  // increased crit chance
-      criticalMultiplier = 2;
-      console.log('Critical hit!');
-      
-      // Only show crit text 20% of the time
-      if (Math.random() < 0.2) {
-        // Create a critical hit text effect
-        const critText = this.scene.add.text(
-          target.x, 
-          target.y - 20, 
-          'CRIT!', 
-          { 
-            fontSize: '12px', 
-            color: '#ff0000',
-            backgroundColor: '#000000'
-          }
-        ).setOrigin(0.5)
-          .setDepth(1);
-          
-        // Remove text quickly
-        this.scene.time.delayedCall(300, () => {
-          critText.destroy();
-        });
-      }
-    }
-    
-    // Calculate final damage - Higher minimum damage for faster fights
-    const damage = Math.max(10, Math.floor((baseDamage - defense / 2) * criticalMultiplier));
+    // Calculate final damage
+    const damage = baseDamage * damageMultiplier;
     
     // Apply damage to target
     target.takeDamage(damage);
     
-    // Only show damage text 30% of the time
-    if (Math.random() < 0.3) {
-      // Create a damage text effect
-      const damageText = this.scene.add.text(
+    // Visual effect for attack at the target position
+    this.showParticleEffect(target.x, target.y, isCritical ? 20 : 10);
+    
+    // Add visual cue for critical hit
+    if (isCritical) {
+      const critText = this.scene.add.text(
         target.x, 
-        target.y - 30, 
-        `-${damage}`, 
+        target.y - 50, 
+        'CRIT!', 
         { 
-          fontSize: '12px', 
+          fontSize: '16px', 
           color: '#ff0000',
-          backgroundColor: '#000000'
+          fontStyle: 'bold'
         }
-      ).setOrigin(0.5)
-        .setDepth(1);
+      ).setOrigin(0.5);
       
-      // Remove text quickly
-      this.scene.time.delayedCall(400, () => {
-        if (damageText && damageText.active) {
-          damageText.destroy();
+      // Fade out and destroy the crit text
+      this.scene.tweens.add({
+        targets: critText,
+        alpha: 0,
+        y: target.y - 80,
+        duration: 800,
+        onComplete: () => {
+          critText.destroy();
         }
       });
     }
+    
+    console.log(`Gladiator ${this.id} attacked ${target.id} for ${damage} damage (${isCritical ? 'CRITICAL' : 'normal'} hit)`);
   }
   
   // Take damage and check for knockout
   public takeDamage(amount: number): void {
     // Calculate damage reduction based on defense
-    // Higher defense means more damage reduction (up to 80% reduction with defense of 10)
-    const damageReduction = Math.min(0.8, this.stats.defense / 12);
-    const reducedDamage = amount * (1 - damageReduction);
+    const damageReduction = this.stats.defense / 10;
+    const actualDamage = Math.max(1, amount * (1 - damageReduction));
     
     // Apply damage
-    this.stats.health! -= reducedDamage;
+    this.stats.health! -= actualDamage;
     
-    // Log damage reduction in debug mode
-    // @ts-ignore - accessing property that may not be directly on the Scene type
-    if (this.scene.debugMode) {
-      console.log(`Gladiator took ${reducedDamage.toFixed(1)} damage (reduced from ${amount} by ${(damageReduction * 100).toFixed(1)}%)`);
-    }
+    // Visual effect for taking damage
+    this.showParticleEffect(this.x, this.y, 15);
     
     // Update health bar
     this.updateHealthBar();
     
-    // Check for knockout
+    // Log damage taken
+    console.log(`Gladiator ${this.id} took ${actualDamage} damage (reduced from ${amount}). Health: ${this.stats.health}`);
+    
+    // Check if knocked out
     if (this.stats.health! <= 0) {
       this.knockout();
     }
@@ -526,29 +499,8 @@ export class Gladiator extends Phaser.Physics.Arcade.Sprite {
   
   // Knockout effect and removal
   public knockout(): void {
-    console.log('Gladiator knocked out!');
-    
-    // Only show KO text 50% of the time to reduce clutter
-    if (Math.random() < 0.5) {
-      // Create a knockout text effect
-      const koText = this.scene.add.text(
-        this.x, 
-        this.y, 
-        'K.O.!', 
-        { 
-          fontSize: '18px', 
-          color: '#ff0000', 
-          fontStyle: 'bold',
-          backgroundColor: '#000000'
-        }
-      ).setOrigin(0.5)
-        .setDepth(2);
-        
-      // Remove the KO text quickly
-      this.scene.time.delayedCall(600, () => {
-        koText.destroy();
-      });
-    }
+    // Show particles for knockout
+    this.showParticleEffect(this.x, this.y, 30);
     
     // Show a flash of red, then fade out
     this.setTint(0xff0000);

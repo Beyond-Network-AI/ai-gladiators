@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PowerUpType, IPowerUpEffect } from '../types/PowerUpType';
 import { Gladiator } from './Gladiator';
+import { POWERUP_SPRITES } from '../utils/AssetManager';
 
 export class PowerUp extends Phaser.Physics.Arcade.Sprite {
   // Power-up type and effects
@@ -59,13 +60,13 @@ export class PowerUp extends Phaser.Physics.Arcade.Sprite {
   private static getTextureForType(type: PowerUpType): string {
     switch (type) {
       case PowerUpType.SHIELD:
-        return 'https://labs.phaser.io/assets/sprites/orb-green.png';
+        return POWERUP_SPRITES.SHIELD;
       case PowerUpType.TRAP:
-        return 'https://labs.phaser.io/assets/sprites/orb-red.png';
+        return POWERUP_SPRITES.TRAP;
       case PowerUpType.CHAOS:
-        return 'https://labs.phaser.io/assets/sprites/wizball.png';
+        return POWERUP_SPRITES.CHAOS;
       default:
-        return 'https://labs.phaser.io/assets/sprites/orb-green.png';
+        return POWERUP_SPRITES.SHIELD;
     }
   }
   

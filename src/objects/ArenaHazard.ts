@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { HazardType, HazardDirection, IHazardConfig } from '../types/HazardType';
 import { Gladiator } from './Gladiator';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/constants';
+import { HAZARD_SPRITES } from '../utils/AssetManager';
 
 export class ArenaHazard extends Phaser.Physics.Arcade.Sprite {
   // Hazard properties
@@ -69,11 +70,11 @@ export class ArenaHazard extends Phaser.Physics.Arcade.Sprite {
   private static getTextureForType(type: HazardType): string {
     switch (type) {
       case HazardType.SPIKE_WALL:
-        return 'https://labs.phaser.io/assets/sprites/block.png';
+        return HAZARD_SPRITES.SPIKE;
       case HazardType.FIREBALL:
-        return 'https://labs.phaser.io/assets/particles/red.png';
+        return HAZARD_SPRITES.FIREBALL;
       default:
-        return 'https://labs.phaser.io/assets/sprites/block.png';
+        return HAZARD_SPRITES.SPIKE;
     }
   }
   
