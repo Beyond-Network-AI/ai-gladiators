@@ -30,10 +30,12 @@ window.addEventListener('load', () => {
           // Fade out animation
           landingPage.style.transition = 'opacity 0.5s ease-out';
           landingPage.style.opacity = '0';
+          landingPage.style.pointerEvents = 'none'; // Prevent any clicks during fade-out
           
           // Hide landing page after fade completes
           setTimeout(() => {
             landingPage.style.display = 'none';
+            landingPage.remove(); // Completely remove from DOM
           }, 500);
         }
       });
