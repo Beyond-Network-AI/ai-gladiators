@@ -1,0 +1,14 @@
+
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff5555" />
+      <stop offset="100%" stop-color="#ffaa00" />
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="90" fill="#1a1a1a" stroke="url(#glow)" stroke-width="5" />
+  <path d="M50 70 L60 90 L80 100 L60 110 L50 130 L40 110 L20 100 L40 90 Z" fill="url(#glow)" />
+  <path d="M150 70 L160 90 L180 100 L160 110 L150 130 L140 110 L120 100 L140 90 Z" fill="url(#glow)" />
+  <path d="M100 50 L110 75 L85 90 L115 90 L90 75 Z" fill="#55ff55" />
+  <path d="M80 120 C90 140 110 140 120 120" stroke="#ffffff" stroke-width="3" fill="none" />
+</svg>

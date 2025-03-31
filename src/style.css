@@ -20,9 +20,6 @@
   --light-bg: #333333;
 }
 
-/* Import pixel font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
 a {
   font-weight: 500;
   color: var(--secondary-color);
@@ -39,14 +36,181 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-width: 320px;
   min-height: 100vh;
   background-color: #0a0a0a;
-  background-image: 
+  position: relative;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(255, 85, 85, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(255, 170, 0, 0.1) 0%, transparent 50%),
     linear-gradient(rgba(20, 20, 20, 0.7) 1px, transparent 1px),
     linear-gradient(90deg, rgba(20, 20, 20, 0.7) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+  z-index: -1;
+  animation: backgroundPulse 8s ease-in-out infinite;
+}
+
+@keyframes backgroundPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Landing Page Styles */
+#landing-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+  padding: 2rem;
+  text-align: center;
+  animation: fadeIn 1s ease-in;
+  z-index: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.game-logo {
+  width: 150px;
+  height: 150px;
+  margin-bottom: 1rem;
+  animation: pulsate 3s ease-in-out infinite;
+}
+
+@keyframes pulsate {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.game-logo img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 10px rgba(255, 85, 85, 0.7));
+}
+
+.title {
+  font-size: 2.5rem;
+  margin: 1rem 0;
+  color: var(--primary-color);
+  text-shadow: 
+    3px 3px 0 rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(255, 85, 85, 0.5),
+    0 0 20px rgba(255, 85, 85, 0.3);
+  animation: glow 3s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 85, 85, 0.5); }
+  50% { text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 85, 85, 0.8); }
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  margin-bottom: 2rem;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.description {
+  background-color: rgba(26, 26, 26, 0.8);
+  border: 2px solid var(--secondary-color);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  max-width: 80%;
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+}
+
+.description p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #fff;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2rem 0;
+  width: 60%;
+}
+
+.loading-text {
+  color: var(--accent-color);
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.loading-bar {
+  width: 100%;
+  height: 15px;
+  background-color: var(--dark-bg);
+  border: 2px solid var(--light-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.loading-progress {
+  height: 100%;
+  width: 20%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  border-radius: 8px;
+  animation: progress 3s ease-in-out infinite;
+}
+
+@keyframes progress {
+  0% { width: 20%; }
+  50% { width: 80%; }
+  100% { width: 20%; }
+}
+
+.features {
+  display: flex;
+  justify-content: space-around;
+  width: 80%;
+  margin-top: 1rem;
+}
+
+.feature {
+  background-color: var(--dark-bg);
+  border: 2px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 10px rgba(255, 85, 85, 0.3);
+  transition: all 0.3s ease;
+}
+
+.feature:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(255, 85, 85, 0.5);
 }
 
 h1 {

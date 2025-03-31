@@ -1,4 +1,22 @@
-import Phaser from 'phaser';
+import Phaser from 'phaser'
+
+// Hide landing page when game is fully loaded
+window.addEventListener('load', () => {
+  // Show loading progress
+  const loadingBar = document.querySelector('.loading-progress') as HTMLElement;
+  if (loadingBar) {
+    loadingBar.style.width = '100%';
+    loadingBar.style.transition = 'width 2s ease-in-out';
+  }
+  
+  // Hide landing page after animation completes
+  setTimeout(() => {
+    const landingPage = document.getElementById('landing-page');
+    if (landingPage) {
+      landingPage.style.display = 'none';
+    }
+  }, 2500);
+});;
 import './style.css';
 import { BootScene } from './scenes/BootScene';
 import { ArenaScene } from './scenes/ArenaScene';
