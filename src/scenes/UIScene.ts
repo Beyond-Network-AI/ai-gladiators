@@ -46,8 +46,6 @@ export class UIScene extends Phaser.Scene {
     // Preload UI assets
     this.load.image('ui_panel', 'https://labs.phaser.io/assets/sprites/panel.png');
     this.load.image('ui_button', 'https://labs.phaser.io/assets/sprites/button.png');
-    // Use web fonts instead of loading via file
-    // Google Fonts will be loaded via CSS
   }
 
   create(): void {
@@ -56,7 +54,7 @@ export class UIScene extends Phaser.Scene {
 
     // Adjust camera to make room for UI at bottom
     this.cameras.main.setViewport(0, 0, GAME_WIDTH, GAME_HEIGHT + 240);
-
+    
     // Set up UI elements
     this.createStatsPanel();
     this.createPredictionPanel();
@@ -74,265 +72,168 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createStatsPanel(): void {
-    // Create stats panel with improved styling
-    const statsPanel = this.add.rectangle(
-      GAME_WIDTH - 150,
-      GAME_HEIGHT - 120,
-      300,
-      150,
-      0x000000,
-      0.8
-    ).setStrokeStyle(3, 0xff5555);
+    // Create container for stats panel
+    this.statsPanel = this.add.container(GAME_WIDTH / 2 + 250, GAME_HEIGHT + 120);
+    
+    // Panel background
+    const statsPanelBg = this.add.rectangle(0, 0, 280, 200, 0x000000, 0.7)
+      .setOrigin(0.5);
+    
+    // Title
+    const statsTitle = this.add.text(0, -85, 'GLADIATOR STATS', {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: COLORS.primaryText,
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
 
-    // Add title with improved styling
-    const statsTitle = this.add.text(
-      GAME_WIDTH - 150,
-      GAME_HEIGHT - 180,
-      'GLADIATOR STATS',
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '16px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5);
+    // Create a placeholder message for when no gladiator is selected
+    const placeholderText = this.add.text(0, 0, 'Select a gladiator\nto view stats', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: COLORS.secondaryText,
+      align: 'center'
+    }).setOrigin(0.5);
 
-    // Add placeholder text with improved styling
-    const placeholderText = this.add.text(
-      GAME_WIDTH - 150,
-      GAME_HEIGHT - 120,
-      'Select a gladiator\nto view stats',
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#bbbbbb',
-        align: 'center',
-        stroke: '#000000',
-        strokeThickness: 1
-      }
-    ).setOrigin(0.5);
-
-    // Add subtle animation to the placeholder text
+    // Empty container for dynamic stats content
+    const statsContent = this.add.container(0, 0);
+    
+    // Add elements to container
+    this.statsPanel.add([statsPanelBg, statsTitle, placeholderText, statsContent]);
+    
+    // Position the panel off screen initially
+    this.statsPanel.setPosition(GAME_WIDTH / 2 + 350, GAME_HEIGHT + 120);
+    
+    // Slide in animation
     this.tweens.add({
-      targets: placeholderText,
-      alpha: { from: 0.7, to: 1 },
-      duration: 1500,
-      yoyo: true,
-      repeat: -1
+      targets: this.statsPanel,
+      x: GAME_WIDTH / 2 + 250,
+      duration: 500,
+      ease: 'Power2'
     });
 
-    // Create decorative elements for the stats panel
-    const decorLine = this.add.graphics();
-    decorLine.lineStyle(2, 0xffaa00, 0.6);
-    decorLine.lineBetween(GAME_WIDTH - 265, GAME_HEIGHT - 155, GAME_WIDTH - 35, GAME_HEIGHT - 155);
-
-    // Create container for stats (initially empty)
-    const statsContent = this.add.container(GAME_WIDTH - 150, GAME_HEIGHT - 120);
-
-    // Create background for the stat bars
-    const statBarsBg = this.add.graphics();
-    statBarsBg.fillStyle(0x222222, 0.6);
-    statBarsBg.fillRect(-125, -45, 250, 80);
-    statBarsBg.setVisible(false);
-    statsContent.add(statBarsBg);
-
-    // Store references
-    statsPanel.setData('placeholderText', placeholderText);
-    statsPanel.setData('statsContent', statsContent);
-    statsPanel.setData('statBarsBg', statBarsBg);
-    statsPanel.setData('decorLine', decorLine);
-    this.statsPanel = statsPanel;
+    // Store references for later updates
+    this.statsPanel.setData('placeholderText', placeholderText);
+    this.statsPanel.setData('statsContent', statsContent);
   }
 
   private createPredictionPanel(): void {
-    // Create prediction panel with improved styling
-    const predictionPanel = this.add.rectangle(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 120,
-      300,
-      150,
-      0x000000,
-      0.8
-    ).setStrokeStyle(3, 0xff5555);
+    // Create container for prediction panel
+    this.predictionPanel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT + 120);
+    
+    // Panel background
+    const predictionPanelBg = this.add.rectangle(0, 0, 280, 120, 0x000000, 0.7)
+      .setOrigin(0.5);
+    
+    // Title
+    const predictionTitle = this.add.text(0, -45, 'PREDICTION', {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: COLORS.primaryText,
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
 
-    // Add title with improved styling
-    const predictionTitle = this.add.text(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 180,
-      'PREDICTION',
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '16px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5);
+    // Prediction information text
+    const predictionText = this.add.text(0, -15, 'Select a gladiator to predict', {
+      fontFamily: 'Arial',
+      fontSize: '12px',
+      color: COLORS.secondaryText
+    }).setOrigin(0.5);
 
-    // Add animated glow effect to prediction title
-    this.tweens.add({
-      targets: predictionTitle,
-      alpha: { from: 0.8, to: 1 },
-      duration: 1500,
-      yoyo: true,
-      repeat: -1
-    });
+    // Cost text
+    const costText = this.add.text(0, 10, `Cost: 5 $GLAD`, {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: COLORS.highlight
+    }).setOrigin(0.5);
 
-    // Add prediction text placeholder with improved styling
-    const predictionText = this.add.text(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 140,
-      'Select a gladiator to predict',
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#bbbbbb',
-        stroke: '#000000',
-        strokeThickness: 1
-      }
-    ).setOrigin(0.5);
-
-    // Add prediction cost with improved styling
-    const predictionCost = this.add.text(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 115,
-      `Cost: ${this.predictionAmount} $GLAD`,
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffaa00',
-        stroke: '#000000',
-        strokeThickness: 1,
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
-
-    // Add animated pulse to cost text
-    this.tweens.add({
-      targets: predictionCost,
-      scale: { from: 1, to: 1.05 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1
-    });
-
-    // Add prediction button with improved styling
-    const predictButton = this.add.rectangle(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 80,
-      130,
-      40,
-      0x2d7a2d
-    ).setStrokeStyle(2, 0x55ff55);
-
-    const predictButtonText = this.add.text(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 80,
-      'PREDICT',
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '14px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 1
-      }
-    ).setOrigin(0.5);
-
-    // Store references
-    predictionPanel.setData('predictionText', predictionText);
-    predictionPanel.setData('predictButton', predictButton);
-    predictionPanel.setData('predictButtonText', predictButtonText);
-    predictionPanel.setData('predictionCost', predictionCost);
-    this.predictionPanel = predictionPanel;
+    // Predict button (disabled initially)
+    const predictButton = this.add.rectangle(0, 35, 120, 30, 0x555555)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    
+    const predictButtonText = this.add.text(0, 35, 'PREDICT', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#cccccc'
+    }).setOrigin(0.5);
 
     // Disable button initially
     predictButton.disableInteractive();
+    
+    // Add prediction handler
+    predictButton.on('pointerdown', () => {
+      if (this.selectedGladiator && !this.predictionMade) {
+        this.makePrediction();
+      }
+    });
+    
+    // Add elements to container
+    this.predictionPanel.add([
+      predictionPanelBg, 
+      predictionTitle,
+      predictionText,
+      costText,
+      predictButton,
+      predictButtonText
+    ]);
+    
+    // Position the panel off screen initially
+    this.predictionPanel.setPosition(GAME_WIDTH / 2, GAME_HEIGHT + 200);
+    
+    // Slide in animation
+    this.tweens.add({
+      targets: this.predictionPanel,
+      y: GAME_HEIGHT + 120,
+      duration: 500,
+      ease: 'Power2'
+    });
+
+    // Store references for later updates
+    this.predictionPanel.setData('predictionText', predictionText);
+    this.predictionPanel.setData('predictButton', predictButton);
+    this.predictionPanel.setData('predictButtonText', predictButtonText);
   }
 
   private createWalletButton(): void {
-    // Create wallet panel background
-    const walletPanel = this.add.rectangle(GAME_WIDTH / 2 - 250, GAME_HEIGHT + 120, 190, 70, 0x000000, 0.8)
-      .setStrokeStyle(3, 0xff5555);
+    // Create container for wallet button
+    this.walletButton = this.add.container(GAME_WIDTH / 2 - 250, GAME_HEIGHT + 120);
+    
+    // Button background
+    const walletBg = this.add.rectangle(0, 0, 200, 50, 0x444444, 0.8)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    
+    // Button text
+    const walletText = this.add.text(0, 0, 'Connect Wallet', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: COLORS.primaryText
+    }).setOrigin(0.5);
 
-    // Create wallet button with enhanced styling
-    const walletButton = this.add.rectangle(GAME_WIDTH / 2 - 250, GAME_HEIGHT + 120, 180, 60, 0x2c5e2e)
-      .setInteractive()
-      .on('pointerdown', () => this.connectWallet())
-      .on('pointerover', () => {
-        walletButton.setFillStyle(0x3a7a3c);
-        this.tweens.add({
-          targets: walletButton,
-          y: GAME_HEIGHT + 118,
-          duration: 100
-        });
-      })
-      .on('pointerout', () => {
-        walletButton.setFillStyle(0x2c5e2e);
-        this.tweens.add({
-          targets: walletButton,
-          y: GAME_HEIGHT + 120,
-          duration: 100
-        });
-      });
-
-    // Add border to wallet button
-    const walletBorder = this.add.rectangle(GAME_WIDTH / 2 - 250, GAME_HEIGHT + 120, 180, 60)
-      .setStrokeStyle(2, 0x55ff55);
-
-    // Add text to wallet button with improved styling
-    const walletText = this.add.text(
-      GAME_WIDTH / 2 - 250,
-      GAME_HEIGHT + 120,
-      'Connect Wallet',
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '14px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5);
-
-    // Create title for wallet panel
-    const walletTitle = this.add.text(
-      GAME_WIDTH / 2 - 250,
-      GAME_HEIGHT + 95,
-      'WALLET',
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '12px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5).setAlpha(0.9);
-
-    // Store references
-    walletButton.setData('walletText', walletText);
-    walletButton.setData('walletBg', walletButton);
-    walletButton.setData('walletBorder', walletBorder);
-    walletButton.setData('walletTitle', walletTitle);
-    walletButton.setData('walletPanel', walletPanel);
-    this.walletButton = walletButton;
-
-    // Create token balance text with improved styling
-    this.gladTokenBalance = this.add.text(
-      GAME_WIDTH / 2 - 250,
-      GAME_HEIGHT + 155,
-      '', // Initially empty
-      {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffaa00',
-        stroke: '#000000',
-        strokeThickness: 1
-      }
-    ).setOrigin(0.5).setVisible(false);
+    // Token balance (hidden initially)
+    this.gladTokenBalance = this.add.text(0, 20, '0 $GLAD', {
+      fontFamily: 'Arial',
+      fontSize: '12px',
+      color: COLORS.highlight
+    }).setOrigin(0.5);
+    this.gladTokenBalance.setVisible(false);
+    
+    // Add click handler
+    walletBg.on('pointerdown', () => {
+      this.connectWallet();
+    });
+    
+    // Add elements to container
+    this.walletButton.add([walletBg, walletText, this.gladTokenBalance]);
+    
+    // Store references for later updates
+    this.walletButton.setData('walletText', walletText);
+    this.walletButton.setData('walletBg', walletBg);
 
     // Position off screen initially
     this.walletButton.setPosition(GAME_WIDTH / 2 - 350, GAME_HEIGHT + 120);
-
+    
     // Slide in animation
     this.tweens.add({
       targets: this.walletButton,
@@ -343,15 +244,15 @@ export class UIScene extends Phaser.Scene {
 
     // Add stats button next to wallet button
     const statsButton = this.add.rectangle(
-      GAME_WIDTH / 2 - 350,
+      GAME_WIDTH / 2 - 350, 
       GAME_HEIGHT + 120,
-      60,
-      30,
-      0x444444,
+      60, 
+      30, 
+      0x444444, 
       0.8
     ).setInteractive({ useHandCursor: true })
-      .setOrigin(0.5);
-
+     .setOrigin(0.5);
+    
     const statsButtonText = this.add.text(
       GAME_WIDTH / 2 - 350,
       GAME_HEIGHT + 120,
@@ -362,12 +263,12 @@ export class UIScene extends Phaser.Scene {
         color: COLORS.primaryText
       }
     ).setOrigin(0.5);
-
+    
     // Add click handler for stats button
     statsButton.on('pointerdown', () => {
       this.showPlayerStats();
     });
-
+    
     // Add to wallet container
     this.walletButton.add([statsButton, statsButtonText]);
     this.walletButton.setData('statsButton', statsButton);
@@ -397,7 +298,7 @@ export class UIScene extends Phaser.Scene {
       if (result.isConnected) {
         this.isWalletConnected = true;
         this.walletAddress = result.address;
-
+        
         // Give free tokens to new players in dev mode
         zoraClient.giveFreeTokens(this.walletAddress).then(mintResult => {
           if (mintResult.success && mintResult.data) {
@@ -405,7 +306,7 @@ export class UIScene extends Phaser.Scene {
             console.log(`Wallet connected with ${this.tokenBalance} $GLAD`);
           }
           this.updateWalletUI();
-
+          
           // Show a welcome back message if player has stats
           const playerStats = matchManager.getPlayerStats(this.walletAddress);
           if (playerStats && playerStats.matchesWatched > 0) {
@@ -421,13 +322,13 @@ export class UIScene extends Phaser.Scene {
   private updateWalletUI(): void {
     const walletText = this.walletButton.getData('walletText');
     const walletBg = this.walletButton.getData('walletBg');
-
+    
     if (this.isWalletConnected) {
       // Update wallet button to show address
       const shortAddress = this.walletAddress.substr(0, 6) + '...' + this.walletAddress.substr(-4);
       walletText.setText(shortAddress);
       walletBg.setFillStyle(0x226622, 0.8);
-
+      
       // Show token balance
       this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
       this.gladTokenBalance.setVisible(true);
@@ -442,10 +343,10 @@ export class UIScene extends Phaser.Scene {
     if (gladiator) {
       const stats = gladiator.getStats();
       console.log('Gladiator stats:', stats);
-
+      
       // Set the selected gladiator
       this.selectedGladiator = gladiator as (Gladiator & GladiatorUI);
-
+      
       // Update UI immediately
       this.updatePredictionUI();
       this.updateStatsPanel();
@@ -459,7 +360,7 @@ export class UIScene extends Phaser.Scene {
     const predictionText = this.predictionPanel.getData('predictionText');
     const predictButton = this.predictionPanel.getData('predictButton');
     const predictButtonText = this.predictionPanel.getData('predictButtonText');
-
+    
     if (this.predictionMade) {
       // Prediction already made
       predictionText.setText(`Prediction placed on Gladiator ${this.selectedGladiator?.id}`);
@@ -468,14 +369,14 @@ export class UIScene extends Phaser.Scene {
       predictButton.disableInteractive();
       return;
     }
-
+    
     if (this.selectedGladiator && this.isWalletConnected) {
       // Gladiator selected and wallet connected - enable prediction
       predictionText.setText(`Predict Gladiator ${this.selectedGladiator.id} will win?`);
       predictButton.setFillStyle(0x44aa44);
       predictButtonText.setText('PREDICT');
       predictButtonText.setColor('#ffffff');
-
+      
       // Only enable if enough balance
       if (this.tokenBalance >= this.predictionAmount) {
         predictButton.setInteractive();
@@ -500,30 +401,30 @@ export class UIScene extends Phaser.Scene {
     if (!this.selectedGladiator || !this.isWalletConnected || this.tokenBalance < this.predictionAmount) {
       return;
     }
-
+    
     // Store the gladiator ID locally in case the selection changes during the async operation
     const gladiatorId = this.selectedGladiator?.id;
-
+    
     // Spend tokens using zoraClient
     zoraClient.spend(this.walletAddress, this.predictionAmount).then(result => {
       if (result.success && result.data) {
         // Update token balance
         this.tokenBalance = result.data.newBalance;
         this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
-
+        
         // Update prediction state
         this.predictionMade = true;
-
+        
         // Update UI
         this.updatePredictionUI();
-
+        
         // Notify arena scene
         this.arenaScene.events.emit('predictionMade', {
           gladiatorId,
           amount: this.predictionAmount,
           walletAddress: this.walletAddress
         });
-
+        
         // Show prediction confirmation
         this.showPredictionConfirmation();
       } else {
@@ -546,7 +447,7 @@ export class UIScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5).setAlpha(0);
-
+    
     // Fade in and out animation
     this.tweens.add({
       targets: confirmText,
@@ -566,18 +467,18 @@ export class UIScene extends Phaser.Scene {
     // Check if player's prediction was correct
     if (this.predictionMade && this.selectedGladiator && winner) {
       const isWinner = this.selectedGladiator.id === winner.id;
-
+      
       if (isWinner) {
         // Award tokens for correct prediction (double the prediction)
         const winnings = this.predictionAmount * 2;
-
+        
         // Distribute winnings using zoraClient
         zoraClient.distributeRewards([this.walletAddress], winnings).then(results => {
           if (results.length > 0 && results[0].success) {
             // Update token balance
             this.tokenBalance = results[0].data.newBalance;
             this.gladTokenBalance.setText(`${this.tokenBalance} $GLAD`);
-
+            
             // Show winning message
             this.showPredictionResult(true, winnings);
           } else {
@@ -590,16 +491,16 @@ export class UIScene extends Phaser.Scene {
         this.showPredictionResult(false, 0);
       }
     }
-
+    
     // Show match statistics if available
     if (matchStats) {
       this.showMatchStatistics(matchStats);
     }
-
+    
     // Reset prediction state for next match
     this.predictionMade = false;
     this.selectedGladiator = null;
-
+    
     // Reset prediction UI for next match
     const predictionText = this.predictionPanel.getData('predictionText');
     if (predictionText) {
@@ -612,8 +513,8 @@ export class UIScene extends Phaser.Scene {
     const resultText = this.add.text(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
-      isWin
-        ? `Prediction Correct! +${amount} $GLAD`
+      isWin 
+        ? `Prediction Correct! +${amount} $GLAD` 
         : 'Prediction Failed!',
       {
         fontFamily: 'Arial',
@@ -622,7 +523,7 @@ export class UIScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5).setAlpha(0);
-
+    
     // Fade in and out animation
     this.tweens.add({
       targets: resultText,
@@ -642,119 +543,89 @@ export class UIScene extends Phaser.Scene {
     // Get references to the UI elements
     const placeholderText = this.statsPanel.getData('placeholderText') as Phaser.GameObjects.Text;
     const statsContent = this.statsPanel.getData('statsContent') as Phaser.GameObjects.Container;
-    const statBarsBg = this.statsPanel.getData('statBarsBg') as Phaser.GameObjects.Graphics;
-
+    
     // Check if we have both references
     if (!placeholderText || !statsContent) {
       console.error('Missing statsPanel elements:', { placeholderText, statsContent });
       return;
     }
-
+    
     // Clear existing stats
     statsContent.removeAll(true);
-    statsContent.add(statBarsBg);
-
+    
     // Only update if we have a selected gladiator
     if (!this.selectedGladiator) {
       placeholderText.setVisible(true);
-      statBarsBg.setVisible(false);
       return;
     }
 
-    // Hide the placeholder text and show stat bars background
+    // Hide the placeholder text
     placeholderText.setVisible(false);
-    statBarsBg.setVisible(true);
-
+    
     // Get stats from the selected gladiator
     const stats = this.selectedGladiator.getStats();
     console.log('Stats to display:', stats);
-
+    
     if (!stats) {
       console.error('Failed to get stats from gladiator', this.selectedGladiator);
       return;
     }
-
-    // Display gladiator ID with enhanced styling
-    const gladiatorTitle = this.add.text(0, -50, `Gladiator ${this.selectedGladiator.id}`, {
-      fontFamily: '"Press Start 2P", monospace',
+    
+    // Display gladiator ID and type
+    statsContent.add(this.add.text(0, -50, `Gladiator ${this.selectedGladiator.id}`, {
+      fontFamily: 'Arial',
       fontSize: '14px',
       color: COLORS.highlight,
-      stroke: '#000000',
-      strokeThickness: 1
-    }).setOrigin(0.5);
-
-    statsContent.add(gladiatorTitle);
-
-    // Add animated highlight to the title
-    this.tweens.add({
-      targets: gladiatorTitle,
-      scale: { from: 1, to: 1.05 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1
-    });
-
-    // Add each stat as a text line with bar visualization
+      fontStyle: 'bold'
+    }).setOrigin(0.5));
+    
+    // Add each stat as a text line
     const statPositions = [
-      { name: 'Strength', key: 'strength' as keyof IGladiatorStats, y: -20, color: 0xff5555, maxVal: 10 },
-      { name: 'Speed', key: 'speed' as keyof IGladiatorStats, y: 0, color: 0x55ff55, maxVal: 150 },
-      { name: 'Defense', key: 'defense' as keyof IGladiatorStats, y: 20, color: 0x5555ff, maxVal: 10 },
-      { name: 'Intelligence', key: 'intelligence' as keyof IGladiatorStats, y: 40, color: 0xffaa00, maxVal: 10 },
-      { name: 'Aggression', key: 'aggression' as keyof IGladiatorStats, y: 60, color: 0xff55ff, maxVal: 1 }
+      { name: 'Strength', key: 'strength' as keyof IGladiatorStats, y: -20 },
+      { name: 'Speed', key: 'speed' as keyof IGladiatorStats, y: 0 },
+      { name: 'Defense', key: 'defense' as keyof IGladiatorStats, y: 20 },
+      { name: 'Intelligence', key: 'intelligence' as keyof IGladiatorStats, y: 40 },
+      { name: 'Aggression', key: 'aggression' as keyof IGladiatorStats, y: 60 }
     ];
-
+    
     statPositions.forEach(stat => {
       if (typeof stats[stat.key] === 'undefined') {
         console.error(`Stat ${stat.key} not found in`, stats);
         return;
       }
-
+      
       const value = stats[stat.key];
-      let valueText = typeof value === 'number'
-        ? (stat.key === 'speed' ? Math.round(value) : value.toFixed(1))
+      let valueText = typeof value === 'number' 
+        ? (stat.key === 'speed' ? Math.round(value) : value.toFixed(1)) 
         : value;
-
-      // Create label for stat name
-      const statLabel = this.add.text(-110, stat.y, `${stat.name}:`, {
+      
+      const statText = this.add.text(0, stat.y, `${stat.name}: ${valueText}`, {
         fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#aaaaaa',
-        stroke: '#000000',
-        strokeThickness: 1
-      }).setOrigin(0, 0.5);
-
-      // Create value display
-      const statValue = this.add.text(110, stat.y, `${valueText}`, {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 1,
-        fontStyle: 'bold'
-      }).setOrigin(1, 0.5);
-
-      // Create stat bar background
-      const barBg = this.add.rectangle(-70, stat.y + 15, 140, 6, 0x333333)
-        .setOrigin(0, 0.5);
-
-      // Calculate percentage for the bar (normalized to the expected max value)
-      const percentage = Math.min(1, Number(value) / stat.maxVal);
-
-      // Create stat bar fill
-      const barFill = this.add.rectangle(-70, stat.y + 15, 140 * percentage, 6, stat.color)
-        .setOrigin(0, 0.5);
-
-      // Add everything to the container
-      statsContent.add([statLabel, statValue, barBg, barFill]);
-
-      // Animate the bar filling
-      this.tweens.add({
-        targets: barFill,
-        width: { from: 0, to: 140 * percentage },
-        duration: 500,
-        ease: 'Power2'
-      });
+        fontSize: '14px',
+        color: COLORS.secondaryText
+      }).setOrigin(0.5);
+      
+      statsContent.add(statText);
     });
+    
+    // Add health bar
+    const healthWidth = 150;
+    const healthBarBg = this.add.rectangle(0, 80, healthWidth, 15, 0x333333).setOrigin(0.5);
+    const healthBar = this.add.rectangle(
+      0 - (healthWidth / 2) + ((this.selectedGladiator.health / 100) * healthWidth / 2), 
+      80, 
+      (this.selectedGladiator.health / 100) * healthWidth, 
+      15, 
+      0xff4444
+    ).setOrigin(0, 0.5);
+    
+    const healthText = this.add.text(0, 80, `${Math.ceil(this.selectedGladiator.health)}%`, {
+      fontFamily: 'Arial',
+      fontSize: '10px',
+      color: COLORS.primaryText
+    }).setOrigin(0.5);
+    
+    statsContent.add([healthBarBg, healthBar, healthText]);
   }
 
   // Add a method to show error messages
@@ -771,7 +642,7 @@ export class UIScene extends Phaser.Scene {
         padding: { x: 10, y: 5 }
       }
     ).setOrigin(0.5).setDepth(100).setAlpha(0);
-
+    
     // Fade in and out animation
     this.tweens.add({
       targets: errorText,
@@ -803,7 +674,7 @@ export class UIScene extends Phaser.Scene {
       0x000000,
       0.8
     ).setOrigin(0.5);
-
+    
     // Add title
     const statsTitle = this.add.text(
       GAME_WIDTH / 2,
@@ -816,7 +687,7 @@ export class UIScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5);
-
+    
     // Add duration
     const durationText = this.add.text(
       GAME_WIDTH / 2,
@@ -828,7 +699,7 @@ export class UIScene extends Phaser.Scene {
         color: COLORS.primaryText
       }
     ).setOrigin(0.5);
-
+    
     // Add power-ups
     const powerUpsText = this.add.text(
       GAME_WIDTH / 2 - 100,
@@ -840,7 +711,7 @@ export class UIScene extends Phaser.Scene {
         color: COLORS.primaryText
       }
     ).setOrigin(0.5);
-
+    
     // Add hazards
     const hazardsText = this.add.text(
       GAME_WIDTH / 2 + 100,
@@ -852,11 +723,11 @@ export class UIScene extends Phaser.Scene {
         color: COLORS.primaryText
       }
     ).setOrigin(0.5);
-
+    
     // Group all elements
     const statsGroup = this.add.container();
     statsGroup.add([statsBg, statsTitle, durationText, powerUpsText, hazardsText]);
-
+    
     // Show and then fade out
     this.tweens.add({
       targets: statsGroup,
@@ -874,10 +745,10 @@ export class UIScene extends Phaser.Scene {
 
   private showWelcomeBack(playerStats: any): void {
     // Create a welcome back message with player stats
-    const winRate = playerStats.predictionsTotal > 0
+    const winRate = playerStats.predictionsTotal > 0 
       ? ((playerStats.predictionsCorrect / playerStats.predictionsTotal) * 100).toFixed(1)
       : 0;
-
+    
     const welcomeText = this.add.text(
       GAME_WIDTH / 2,
       GAME_HEIGHT + 60,
@@ -890,7 +761,7 @@ export class UIScene extends Phaser.Scene {
         padding: { x: 10, y: 5 }
       }
     ).setOrigin(0.5);
-
+    
     // Fade out after a few seconds
     this.tweens.add({
       targets: welcomeText,
@@ -911,15 +782,15 @@ export class UIScene extends Phaser.Scene {
       this.showErrorMessage('Connect wallet to view stats');
       return;
     }
-
+    
     // Get player stats from match manager
     const playerStats = matchManager.getPlayerStats(this.walletAddress);
-
+    
     if (!playerStats || playerStats.matchesWatched === 0) {
       this.showErrorMessage('No stats available yet');
       return;
     }
-
+    
     // Create a stats panel
     const statsPanelBg = this.add.rectangle(
       GAME_WIDTH / 2,
@@ -929,7 +800,7 @@ export class UIScene extends Phaser.Scene {
       0x000000,
       0.9
     ).setOrigin(0.5);
-
+    
     // Add title
     const title = this.add.text(
       GAME_WIDTH / 2,
@@ -942,14 +813,14 @@ export class UIScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5);
-
+    
     // Calculate stats
     const winRate = playerStats.predictionsTotal > 0
-      ? ((playerStats.predictionsCorrect / playerStats.predictionsTotal) * 100).toFixed(1)
+      ? ((playerStats.predictionsCorrect / playerStats.predictionsTotal) * 100).toFixed(1) 
       : '0.0';
-
+    
     const netProfit = playerStats.tokensWon - playerStats.tokensSpent;
-
+    
     // Add stats text
     const statsText = [
       `Matches Watched: ${playerStats.matchesWatched}`,
@@ -960,14 +831,14 @@ export class UIScene extends Phaser.Scene {
       `Tokens Won: ${playerStats.tokensWon} $GLAD`,
       `Net Profit: ${netProfit} $GLAD`
     ];
-
+    
     const statsContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
-
+    
     statsText.forEach((text, index) => {
-      const textColor = index === 6
-        ? (netProfit >= 0 ? '#44ff44' : '#ff4444')
+      const textColor = index === 6 
+        ? (netProfit >= 0 ? '#44ff44' : '#ff4444') 
         : COLORS.primaryText;
-
+        
       statsContainer.add(
         this.add.text(0, index * 30, text, {
           fontFamily: 'Arial',
@@ -976,7 +847,7 @@ export class UIScene extends Phaser.Scene {
         }).setOrigin(0.5)
       );
     });
-
+    
     // Add leaderboard section
     const leaderboardTitle = this.add.text(
       GAME_WIDTH / 2,
@@ -989,20 +860,20 @@ export class UIScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5);
-
+    
     // Get top 3 players from leaderboard
     const topPlayers = matchManager.getLeaderboard().slice(0, 3);
-
+    
     const leaderboardContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 140);
-
+    
     if (topPlayers.length > 0) {
       topPlayers.forEach((player, index) => {
         const playerWinRate = ((player.predictionsCorrect / player.predictionsTotal) * 100).toFixed(1);
         const playerAddress = player.address.substr(0, 6) + '...' + player.address.substr(-4);
-
+        
         // Highlight current player
         const isCurrentPlayer = player.address === this.walletAddress;
-
+        
         leaderboardContainer.add(
           this.add.text(0, index * 20, `${index + 1}. ${playerAddress} - ${playerWinRate}%`, {
             fontFamily: 'Arial',
@@ -1020,7 +891,7 @@ export class UIScene extends Phaser.Scene {
         }).setOrigin(0.5)
       );
     }
-
+    
     // Add close button
     const closeButton = this.add.rectangle(
       GAME_WIDTH / 2,
@@ -1029,8 +900,8 @@ export class UIScene extends Phaser.Scene {
       30,
       0x444444
     ).setInteractive({ useHandCursor: true })
-      .setOrigin(0.5);
-
+     .setOrigin(0.5);
+    
     const closeText = this.add.text(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2 + 180,
@@ -1041,7 +912,7 @@ export class UIScene extends Phaser.Scene {
         color: COLORS.primaryText
       }
     ).setOrigin(0.5);
-
+    
     // Group all elements
     const statsPanel = this.add.container(0, 0);
     statsPanel.add([
@@ -1053,7 +924,7 @@ export class UIScene extends Phaser.Scene {
       closeButton,
       closeText
     ]);
-
+    
     // Add click handler for close button
     closeButton.on('pointerdown', () => {
       // Fade out and destroy
@@ -1066,7 +937,7 @@ export class UIScene extends Phaser.Scene {
         }
       });
     });
-
+    
     // Fade in effect
     statsPanel.setAlpha(0);
     this.tweens.add({
@@ -1075,4 +946,4 @@ export class UIScene extends Phaser.Scene {
       duration: 300
     });
   }
-}
+} 
