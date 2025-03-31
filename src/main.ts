@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 
-// Hide landing page when game is fully loaded
+// Handle loading and game start flow
 window.addEventListener('load', () => {
   // Show loading progress
   const loadingBar = document.querySelector('.loading-progress') as HTMLElement;
@@ -9,14 +9,40 @@ window.addEventListener('load', () => {
     loadingBar.style.transition = 'width 2s ease-in-out';
   }
   
-  // Hide landing page after animation completes
+  // Create Play button after loading completes
   setTimeout(() => {
-    const landingPage = document.getElementById('landing-page');
-    if (landingPage) {
-      landingPage.style.display = 'none';
+    const loadingText = document.querySelector('.loading-text') as HTMLElement;
+    if (loadingText) {
+      loadingText.textContent = 'Ready to battle!';
+    }
+    
+    const loadingElement = document.querySelector('.loading') as HTMLElement;
+    if (loadingElement) {
+      // Create Play button
+      const playButton = document.createElement('button');
+      playButton.className = 'play-button';
+      playButton.textContent = 'ENTER ARENA';
+      
+      // Add click handler to start the game
+      playButton.addEventListener('click', () => {
+        const landingPage = document.getElementById('landing-page');
+        if (landingPage) {
+          // Fade out animation
+          landingPage.style.transition = 'opacity 0.5s ease-out';
+          landingPage.style.opacity = '0';
+          
+          // Hide landing page after fade completes
+          setTimeout(() => {
+            landingPage.style.display = 'none';
+          }, 500);
+        }
+      });
+      
+      // Add button to loading area
+      loadingElement.appendChild(playButton);
     }
   }, 2500);
-});;
+});
 import './style.css';
 import { BootScene } from './scenes/BootScene';
 import { ArenaScene } from './scenes/ArenaScene';

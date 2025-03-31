@@ -189,6 +189,39 @@ body::before {
   100% { width: 20%; }
 }
 
+.play-button {
+  margin-top: 1.5rem;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+  border: 3px solid var(--accent-color);
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(255, 85, 85, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.7);
+  letter-spacing: 2px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  animation: buttonPulse 2s infinite;
+}
+
+@keyframes buttonPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(255, 85, 85, 0.7); }
+  50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(255, 85, 85, 0.9); }
+}
+
+.play-button:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(255, 85, 85, 0.8);
+  background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
+}
+
+.play-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 5px 10px rgba(255, 85, 85, 0.6);
+}
+
 .features {
   display: flex;
   justify-content: space-around;
