@@ -40,9 +40,6 @@ private updateProgress(): void {
           color: '#55ff55'
         }).setOrigin(0.5);
 
-        // Hide the progress bar
-        this.progressBar.clear();
-
         // Enable the enter button
         this.enterButton.setInteractive({ useHandCursor: true });
         this.enterButton.setFillStyle(0xff6644, 1);
