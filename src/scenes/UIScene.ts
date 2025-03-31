@@ -46,7 +46,8 @@ export class UIScene extends Phaser.Scene {
     // Preload UI assets
     this.load.image('ui_panel', 'https://labs.phaser.io/assets/sprites/panel.png');
     this.load.image('ui_button', 'https://labs.phaser.io/assets/sprites/button.png');
-    this.load.addFile('font', 'Press Start 2P.ttf')
+    // Use web fonts instead of loading via file
+    // Google Fonts will be loaded via CSS
   }
 
   create(): void {
