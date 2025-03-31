@@ -6,3 +6,19 @@ channel = "stable-24_05"
 
 [deployment]
 run = ["sh", "-c", "npm run dev"]
+
+[workflows]
+runButton = "Run AI Gladiators"
+
+[[workflows.workflow]]
+name = "Run AI Gladiators"
+author = 27388909
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev -- --host 0.0.0.0"
+
+[[ports]]
+localPort = 5173
+externalPort = 80
