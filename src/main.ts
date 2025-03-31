@@ -49,10 +49,10 @@ window.addEventListener('load', () => {
       loadingText.textContent = 'Ready to battle!';
     }
 
-    // Hide the progress bar
-    const progressBar = document.querySelector('.loading-progress') as HTMLElement;
-    if (progressBar) {
-      progressBar.style.display = 'none';
+    // Hide the entire progress container
+    const progressContainer = document.querySelector('.loading-progress-container') as HTMLElement;
+    if (progressContainer) {
+      progressContainer.classList.add('hidden');
     }
 
     const loadingElement = document.querySelector('.loading') as HTMLElement;
